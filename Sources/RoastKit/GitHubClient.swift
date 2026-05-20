@@ -61,6 +61,7 @@ public final class GitHubClient: @unchecked Sendable {
           title
           url
           createdAt
+          isDraft
           author { login }
           repository { name }
           reviewRequests(first: 20) {
@@ -158,7 +159,8 @@ public final class GitHubClient: @unchecked Sendable {
                             reviewRequestedTeams: existing.reviewRequestedTeams,
                             bodyMentionsTeam: true,
                             latestReviews: existing.latestReviews,
-                            commentCount: existing.commentCount
+                            commentCount: existing.commentCount,
+                            isDraft: existing.isDraft
                         )
                     }
                 } else {
@@ -214,6 +216,7 @@ public final class GitHubClient: @unchecked Sendable {
         }
 
         let commentCount = (node["comments"] as? [String: Any])?["totalCount"] as? Int ?? 0
+        let isDraft = node["isDraft"] as? Bool ?? false
 
         return PullRequest(
             id: id,
@@ -227,7 +230,8 @@ public final class GitHubClient: @unchecked Sendable {
             reviewRequestedTeams: reviewRequestedTeams,
             bodyMentionsTeam: bodyMentionsTeam,
             latestReviews: reviews,
-            commentCount: commentCount
+            commentCount: commentCount,
+            isDraft: isDraft
         )
     }
 

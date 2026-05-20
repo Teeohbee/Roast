@@ -30,6 +30,7 @@ public struct PullRequest: Sendable {
     public let bodyMentionsTeam: Bool
     public let latestReviews: [Review]
     public let commentCount: Int
+    public let isDraft: Bool
 
     public init(
         id: String,
@@ -43,7 +44,8 @@ public struct PullRequest: Sendable {
         reviewRequestedTeams: [String],
         bodyMentionsTeam: Bool,
         latestReviews: [Review],
-        commentCount: Int
+        commentCount: Int,
+        isDraft: Bool = false
     ) {
         self.id = id
         self.number = number
@@ -57,6 +59,7 @@ public struct PullRequest: Sendable {
         self.bodyMentionsTeam = bodyMentionsTeam
         self.latestReviews = latestReviews
         self.commentCount = commentCount
+        self.isDraft = isDraft
     }
 
     public var relativeAge: String {

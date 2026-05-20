@@ -51,6 +51,20 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             try? SMAppService.mainApp.register()
         }
 
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.poller.poll()
+            }
+        }
+
+        if KeychainStore.loadToken() == nil || preferences.teamSlug.isEmpty {
+            preferencesWindow.show()
+        }
+
         poller.start()
     }
 

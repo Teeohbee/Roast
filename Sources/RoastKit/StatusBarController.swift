@@ -126,7 +126,8 @@ public final class StatusBarController: NSObject {
         header.isEnabled = false
         menu.addItem(header)
 
-        for pr in prs {
+        let sorted = prs.sorted { $0.createdAt < $1.createdAt }
+        for pr in sorted {
             let item = NSMenuItem()
             item.view = makePRView(title: pr.title, subtitle: subtitle(pr), pr: pr)
             item.representedObject = pr
@@ -191,8 +192,12 @@ public final class StatusBarController: NSObject {
 
     // MARK: - Subtitle Formatters
 
+    private func draftPrefix(_ pr: PullRequest) -> String {
+        pr.isDraft ? "Draft \u{00b7} " : ""
+    }
+
     private func reviewSubtitle(_ pr: PullRequest) -> String {
-        "\(pr.repoName) \u{00b7} \(pr.author) \u{00b7} \(pr.relativeAge)"
+        "\(draftPrefix(pr))\(pr.repoName) #\(pr.number) \u{00b7} \(pr.author) \u{00b7} \(pr.relativeAge)"
     }
 
     private func myPRSubtitle(_ pr: PullRequest) -> String {
@@ -203,13 +208,13 @@ public final class StatusBarController: NSObject {
         case .pending: verdict = "Pending review"
         case .commented: verdict = "Commented"
         }
-        return "\(pr.repoName) \u{00b7} \(verdict) \u{00b7} \(pr.relativeAge)"
+        return "\(draftPrefix(pr))\(pr.repoName) #\(pr.number) \u{00b7} \(verdict) \u{00b7} \(pr.relativeAge)"
     }
 
     private func activitySubtitle(_ pr: PullRequest) -> String {
         let count = newCommentCounts[pr.id] ?? 0
         let comments = count > 0 ? "\(count) new comment\(count == 1 ? "" : "s") \u{00b7} " : ""
-        return "\(pr.repoName) \u{00b7} \(comments)\(pr.relativeAge)"
+        return "\(draftPrefix(pr))\(pr.repoName) #\(pr.number) \u{00b7} \(comments)\(pr.relativeAge)"
     }
 
     // MARK: - Actions

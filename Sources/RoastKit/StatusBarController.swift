@@ -240,14 +240,29 @@ private class PRRowView: NSView {
     var pr: PullRequest?
     weak var target: AnyObject?
     var action: Selector?
-    private var isHighlighted = false
+    private var trackingRef: NSTrackingArea?
+
+    private var isHighlighted: Bool = false {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            subviews.compactMap { $0 as? NSTextField }.forEach { label in
+                if isHighlighted {
+                    label.textColor = .white
+                } else if label.font?.pointSize ?? 0 > 12 {
+                    label.textColor = .labelColor
+                } else {
+                    label.textColor = .secondaryLabelColor
+                }
+            }
+            needsDisplay = true
+        }
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         if isHighlighted {
             NSColor.selectedContentBackgroundColor.setFill()
-            bounds.fill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 1), xRadius: 4, yRadius: 4).fill()
         }
-        super.draw(dirtyRect)
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -256,33 +271,32 @@ private class PRRowView: NSView {
         }
     }
 
-    override func mouseEntered(with event: NSEvent) {
-        isHighlighted = true
-        subviews.compactMap { $0 as? NSTextField }.forEach {
-            $0.textColor = .white
-        }
-        needsDisplay = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHighlighted = false
-        subviews.compactMap { $0 as? NSTextField }.forEach { label in
-            if label.font?.pointSize ?? 0 > 12 {
-                label.textColor = .labelColor
-            } else {
-                label.textColor = .secondaryLabelColor
-            }
-        }
-        needsDisplay = true
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { ensureTrackingArea() }
     }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        trackingAreas.forEach { removeTrackingArea($0) }
-        addTrackingArea(NSTrackingArea(
+        ensureTrackingArea()
+    }
+
+    private func ensureTrackingArea() {
+        if let old = trackingRef { removeTrackingArea(old) }
+        let area = NSTrackingArea(
             rect: bounds,
-            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self
-        ))
+        )
+        addTrackingArea(area)
+        trackingRef = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHighlighted = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHighlighted = false
     }
 }

@@ -225,4 +225,91 @@ enum PRStoreTests {
             }
         }
     }
+
+    static func runDiffTests() {
+        suite("PRStore detectChanges - review requests") {
+            test("new review request detected") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "alice", reviewRequestedLogins: ["bob"])
+                _ = store.categorise([])
+                _ = store.categorise([pr])
+                let events = store.detectChanges()
+                try expect(events.count, 1)
+                try expect(events[0] == .reviewRequested(pr: pr), "expected reviewRequested event")
+            }
+
+            test("no event when review request already existed") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "alice", reviewRequestedLogins: ["bob"])
+                _ = store.categorise([pr])
+                _ = store.categorise([pr])
+                let events = store.detectChanges()
+                let reviewEvents = events.filter {
+                    if case .reviewRequested = $0 { return true }
+                    return false
+                }
+                try expect(reviewEvents.isEmpty, "expected no reviewRequested events for existing request")
+            }
+        }
+
+        suite("PRStore detectChanges - verdicts on my PRs") {
+            test("new approval detected on my PR") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let prBefore = ModelsTests.makePR(id: "PR_1", author: "bob", latestReviews: [])
+                let prAfter = ModelsTests.makePR(
+                    id: "PR_1",
+                    author: "bob",
+                    latestReviews: [Review(author: "carol", verdict: .approved)]
+                )
+                _ = store.categorise([prBefore])
+                _ = store.categorise([prAfter])
+                let events = store.detectChanges()
+                try expect(events.count, 1)
+                try expect(events[0] == .approved(pr: prAfter, reviewer: "carol"), "expected approved event")
+            }
+
+            test("changes requested detected on my PR") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let prBefore = ModelsTests.makePR(id: "PR_1", author: "bob", latestReviews: [])
+                let prAfter = ModelsTests.makePR(
+                    id: "PR_1",
+                    author: "bob",
+                    latestReviews: [Review(author: "carol", verdict: .changesRequested)]
+                )
+                _ = store.categorise([prBefore])
+                _ = store.categorise([prAfter])
+                let events = store.detectChanges()
+                try expect(events.count, 1)
+                try expect(events[0] == .changesRequested(pr: prAfter, reviewer: "carol"), "expected changesRequested event")
+            }
+        }
+
+        suite("PRStore detectChanges - new comments") {
+            test("new comments detected") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let prBefore = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 3)
+                let prAfter = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 5)
+                _ = store.categorise([prBefore])
+                _ = store.categorise([prAfter])
+                let events = store.detectChanges()
+                try expect(events.count, 1)
+                try expect(events[0] == .newComments(pr: prAfter, count: 2), "expected newComments event with delta 2")
+            }
+
+            test("no events when nothing changed") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 3)
+                _ = store.categorise([pr])
+                _ = store.categorise([pr])
+                let events = store.detectChanges()
+                try expect(events.isEmpty, "expected no events when nothing changed")
+            }
+        }
+    }
 }

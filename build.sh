@@ -22,6 +22,7 @@ fi
 
 cp "$EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/Roast"
 cp Info.plist "$APP_BUNDLE/Contents/Info.plist"
+cp AppIcon.icns "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
 echo "Done: $APP_BUNDLE"
 

@@ -2,5 +2,6 @@
 
 ModelsTests.run()
 PreferencesStoreTests.run()
+PRStoreTests.run()
 
 reportResults()

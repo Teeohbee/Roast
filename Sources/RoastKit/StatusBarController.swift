@@ -10,6 +10,7 @@ public final class StatusBarController: NSObject {
     private var errorState: Bool = false
 
     private var newCommentCounts: [String: Int] = [:]
+    private var statusText: String = "Not configured"
 
     public var onRefresh: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
@@ -29,13 +30,18 @@ public final class StatusBarController: NSObject {
         self.badgeCount = badgeCount
         self.newCommentCounts = newCommentCounts
         self.errorState = false
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        self.statusText = "Updated \(formatter.string(from: Date()))"
         updateIcon()
         rebuildMenu()
     }
 
-    public func showError() {
+    public func showError(_ message: String = "Check token and team in Settings") {
         self.errorState = true
+        self.statusText = message
         updateIcon()
+        rebuildMenu()
     }
 
     // MARK: - Icon
@@ -75,6 +81,11 @@ public final class StatusBarController: NSObject {
         if !categorised.needsMyReview.isEmpty || !categorised.myPRs.isEmpty || !categorised.newActivity.isEmpty {
             menu.addItem(.separator())
         }
+
+        let statusItem = NSMenuItem(title: statusText, action: nil, keyEquivalent: "")
+        statusItem.isEnabled = false
+        menu.addItem(statusItem)
+        menu.addItem(.separator())
 
         let refreshItem = NSMenuItem(title: "Refresh Now", action: #selector(refreshClicked), keyEquivalent: "r")
         refreshItem.target = self

@@ -99,7 +99,7 @@ public final class GitHubClient: @unchecked Sendable {
 
         aliases.append((
             name: "bodyMention",
-            searchQuery: "type:pr state:open @\(org)/\(team) in:body org:\(org)",
+            searchQuery: "type:pr state:open \\\"@\(org)/\(team)\\\" in:body org:\(org)",
             isBodyMention: true
         ))
 

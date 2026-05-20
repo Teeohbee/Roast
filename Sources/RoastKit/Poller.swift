@@ -29,14 +29,14 @@ public final class Poller {
 
     public func poll() {
         guard let token = KeychainStore.loadToken(), !token.isEmpty else {
-            statusBar.showError()
+            statusBar.showError("No GitHub token - open Settings")
             return
         }
 
         let org = preferences.org
         let teamName = preferences.teamName
         guard !org.isEmpty, !teamName.isEmpty else {
-            statusBar.showError()
+            statusBar.showError("No team configured - open Settings")
             return
         }
 
@@ -65,8 +65,19 @@ public final class Poller {
 
                 statusBar.update(categorised: categorised, badgeCount: store.badgeCount, newCommentCounts: store.newCommentCounts)
                 notifications.deliver(events)
+            } catch let error as GitHubError {
+                switch error {
+                case .httpError(401, _):
+                    statusBar.showError("Authentication failed - check token")
+                case .httpError(let code, _):
+                    statusBar.showError("GitHub API error (\(code))")
+                case .graphQLErrors(let messages):
+                    statusBar.showError(messages.first ?? "GraphQL error")
+                default:
+                    statusBar.showError("Failed to fetch PRs")
+                }
             } catch {
-                statusBar.showError()
+                statusBar.showError("Network error")
             }
         }
     }

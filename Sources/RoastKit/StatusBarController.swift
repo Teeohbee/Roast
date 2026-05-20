@@ -47,19 +47,28 @@ public final class StatusBarController: NSObject {
     // MARK: - Icon
 
     private func updateIcon() {
-        let title: String
+        let symbolName: String
         if errorState {
-            title = "\u{2442} !"
+            symbolName = "flame"
         } else if badgeCount > 0 {
-            title = "\u{2442} \(badgeCount)"
+            symbolName = "flame.fill"
         } else {
-            title = "\u{2442}"
+            symbolName = "flame"
         }
 
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
-        ]
-        statusItem.button?.attributedTitle = NSAttributedString(string: title, attributes: attributes)
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium, scale: .medium)
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Roast")?
+            .withSymbolConfiguration(config)
+        image?.isTemplate = true
+        statusItem.button?.image = image
+
+        if errorState {
+            statusItem.button?.title = " !"
+        } else if badgeCount > 0 {
+            statusItem.button?.title = " \(badgeCount)"
+        } else {
+            statusItem.button?.title = ""
+        }
     }
 
     // MARK: - Click

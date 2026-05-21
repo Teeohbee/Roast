@@ -85,9 +85,9 @@ public final class StatusBarController: NSObject {
         let menu = NSMenu()
         menu.minimumWidth = Self.menuWidth
 
-        addSection(to: menu, icon: "\u{1F440}", title: "Needs My Review", prs: categorised.needsMyReview, badgeColour: .systemRed, subtitle: reviewSubtitle)
-        addSection(to: menu, icon: "\u{1F4E4}", title: "My PRs", prs: categorised.myPRs, badgeColour: .systemGray, subtitle: myPRSubtitle)
-        addSection(to: menu, icon: "\u{1F4AC}", title: "New Activity", prs: categorised.newActivity, badgeColour: .systemBlue, subtitle: activitySubtitle)
+        addSection(to: menu, title: "Needs My Review", prs: categorised.needsMyReview, subtitle: reviewSubtitle)
+        addSection(to: menu, title: "My PRs", prs: categorised.myPRs, subtitle: myPRSubtitle)
+        addSection(to: menu, title: "New Activity", prs: categorised.newActivity, subtitle: activitySubtitle)
 
         if !categorised.drafts.isEmpty {
             addDraftsSection(to: menu)
@@ -123,12 +123,12 @@ public final class StatusBarController: NSObject {
         self.currentMenu = menu
     }
 
-    private func addSection(to menu: NSMenu, icon: String, title: String, prs: [PullRequest], badgeColour: NSColor, subtitle: (PullRequest) -> NSAttributedString) {
+    private func addSection(to menu: NSMenu, title: String, prs: [PullRequest], subtitle: (PullRequest) -> NSAttributedString) {
         guard !prs.isEmpty else { return }
 
-        let headerItem = NSMenuItem()
-        headerItem.view = makeSectionHeader(icon: icon, title: title, count: prs.count, badgeColour: badgeColour)
-        menu.addItem(headerItem)
+        let header = NSMenuItem(title: "\(title) (\(prs.count))", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
 
         let sorted = prs.sorted { $0.createdAt > $1.createdAt }
         for pr in sorted {
@@ -164,47 +164,6 @@ public final class StatusBarController: NSObject {
     }
 
     // MARK: - Section Header
-
-    private func makeSectionHeader(icon: String, title: String, count: Int, badgeColour: NSColor) -> NSView {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: 28))
-
-        let iconLabel = NSTextField(labelWithString: icon)
-        iconLabel.font = .systemFont(ofSize: 12)
-
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        titleLabel.textColor = .secondaryLabelColor
-
-        let badgeLabel = NSTextField(labelWithString: "\(count)")
-        badgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
-        badgeLabel.textColor = .white
-        badgeLabel.alignment = .center
-        badgeLabel.backgroundColor = badgeColour
-        badgeLabel.drawsBackground = true
-        badgeLabel.isBezeled = false
-        badgeLabel.wantsLayer = true
-        badgeLabel.layer?.cornerRadius = 7
-
-        for v in [iconLabel, titleLabel, badgeLabel] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(v)
-        }
-
-        NSLayoutConstraint.activate([
-            iconLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            iconLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconLabel.trailingAnchor, constant: 6),
-            titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-
-            badgeLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
-            badgeLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            badgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
-            badgeLabel.heightAnchor.constraint(equalToConstant: 16),
-        ])
-
-        return container
-    }
 
     private func makeDraftsHeader(count: Int) -> NSView {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: 26))
@@ -268,11 +227,21 @@ public final class StatusBarController: NSObject {
         let subtitleLabel = NSTextField(labelWithAttributedString: subtitleAttr)
         subtitleLabel.lineBreakMode = .byTruncatingTail
         subtitleLabel.maximumNumberOfLines = 1
+        subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let ageLabel = NSTextField(labelWithString: pr.relativeAge)
+        ageLabel.font = .systemFont(ofSize: 11)
+        ageLabel.textColor = .secondaryLabelColor
+        ageLabel.alignment = .right
+        ageLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        ageLabel.setContentHuggingPriority(.required, for: .horizontal)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        ageLabel.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(titleLabel)
         container.addSubview(subtitleLabel)
+        container.addSubview(ageLabel)
 
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
@@ -280,8 +249,11 @@ public final class StatusBarController: NSObject {
             titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
 
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -12),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
+
+            ageLabel.leadingAnchor.constraint(greaterThanOrEqualTo: subtitleLabel.trailingAnchor, constant: 8),
+            ageLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
+            ageLabel.centerYAnchor.constraint(equalTo: subtitleLabel.centerYAnchor),
         ])
 
         return container
@@ -342,22 +314,9 @@ public final class StatusBarController: NSObject {
                 var attrs = Self.subtitleAttrs
                 attrs[.foregroundColor] = colour
                 result.append(NSAttributedString(string: text, attributes: attrs))
-            case .age(let pr):
-                let ageText = pr.relativeAge
-                let colour = ageColour(pr)
-                var attrs = Self.subtitleAttrs
-                attrs[.foregroundColor] = colour
-                result.append(NSAttributedString(string: ageText, attributes: attrs))
             }
         }
         return result
-    }
-
-    private func ageColour(_ pr: PullRequest) -> NSColor {
-        let days = Int(Date().timeIntervalSince(pr.createdAt)) / 86400
-        if days > 7 { return .systemRed }
-        if days > 1 { return .systemOrange }
-        return .secondaryLabelColor
     }
 
     private enum SubtitlePart {
@@ -366,7 +325,6 @@ public final class StatusBarController: NSObject {
         case text(String)
         case separator
         case coloured(String, NSColor)
-        case age(PullRequest)
     }
 
     private func reviewSubtitle(_ pr: PullRequest) -> NSAttributedString {
@@ -376,8 +334,6 @@ public final class StatusBarController: NSObject {
             .text("#\(pr.number)"),
             .separator,
             .text(pr.author),
-            .separator,
-            .age(pr),
         ]
         if pr.isDraft {
             parts.insert(.coloured("Draft", .systemOrange), at: 0)
@@ -407,8 +363,6 @@ public final class StatusBarController: NSObject {
         case .commented:
             parts.append(.text("Commented"))
         }
-        parts.append(.separator)
-        parts.append(.age(pr))
         return styledSubtitle(parts)
     }
 
@@ -423,8 +377,6 @@ public final class StatusBarController: NSObject {
             parts.append(.separator)
             parts.append(.coloured("\(count) new comment\(count == 1 ? "" : "s")", .systemBlue))
         }
-        parts.append(.separator)
-        parts.append(.age(pr))
         return styledSubtitle(parts)
     }
 

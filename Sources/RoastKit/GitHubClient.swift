@@ -63,7 +63,7 @@ public final class GitHubClient: @unchecked Sendable {
           createdAt
           isDraft
           author { login }
-          repository { name }
+          repository { name isArchived }
           reviewRequests(first: 20) {
             nodes {
               requestedReviewer {
@@ -185,6 +185,8 @@ public final class GitHubClient: @unchecked Sendable {
               let repoName = repoDict["name"] as? String else {
             return nil
         }
+
+        if repoDict["isArchived"] as? Bool == true { return nil }
 
         let createdAt = ISO8601DateFormatter().date(from: createdAtString) ?? Date()
 

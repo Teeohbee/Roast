@@ -7,7 +7,6 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 - **Three-section menu** - "Needs My Review", "My PRs", and "New Activity"
 - **Team-scoped** - Only shows PRs from your GitHub team members
 - **CI status** - Green, red, or yellow dot per PR so you know if CI is passing
-- **macOS notifications** - Review requests, approvals, changes requested, new comments
 - **Jira integration** - Cmd-click any PR with a ticket reference to open Jira
 - **Draft filtering** - Other people's draft PRs are hidden; yours still show in "My PRs"
 - **Lightweight** - Pure AppKit, no Electron, no SwiftUI, no dependencies
@@ -45,7 +44,7 @@ Roast polls GitHub's GraphQL API on a configurable interval, batching multiple s
 
 PRs from archived repositories are filtered out.
 
-Results are categorised into three buckets, diffed against the previous poll to detect changes, and delivered as macOS notifications when something new arrives. If 5+ events land in one cycle, they're collapsed into a single summary notification.
+Results are categorised into three buckets and diffed against the previous poll to detect changes.
 
 The app re-polls automatically on wake from sleep.
 

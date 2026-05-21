@@ -60,7 +60,7 @@ public final class Poller {
 
                 let prs = try await client.fetchPRs(org: org, team: teamName, members: cachedMembers)
                 let store = prStore!
-                let categorised = store.categorise(prs)
+                let categorised = store.categorise(prs, teamMembers: cachedMembers)
                 let events = store.detectChanges()
 
                 statusBar.update(categorised: categorised, badgeCount: store.badgeCount, newCommentCounts: store.newCommentCounts)

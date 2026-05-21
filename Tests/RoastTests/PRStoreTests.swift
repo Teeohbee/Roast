@@ -96,6 +96,36 @@ enum PRStoreTests {
             }
         }
 
+        suite("PRStore needsMyReview - team member authored") {
+            test("PR authored by team member goes to needsMyReview") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "alice")
+                let result = store.categorise([pr], teamMembers: ["alice", "bob", "carol"])
+                try expect(result.needsMyReview.count, 1)
+                try expect(result.needsMyReview[0].id, pr.id)
+            }
+
+            test("PR authored by team member excluded if already reviewed") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(
+                    author: "alice",
+                    latestReviews: [Review(author: "bob", verdict: .approved)]
+                )
+                let result = store.categorise([pr], teamMembers: ["alice", "bob"])
+                try expect(result.needsMyReview.count, 0)
+            }
+
+            test("PR authored by non-team-member without review request excluded") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "stranger")
+                let result = store.categorise([pr], teamMembers: ["alice", "bob"])
+                try expect(result.needsMyReview.count, 0)
+            }
+        }
+
         suite("PRStore newActivity") {
             test("Participating PR with new comments -> newActivity") {
                 let prefs = freshPreferences()

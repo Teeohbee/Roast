@@ -17,26 +17,25 @@ public final class PRStore {
     }
 
     @discardableResult
-    public func categorise(_ prs: [PullRequest]) -> CategorisedPRs {
+    public func categorise(_ prs: [PullRequest], teamMembers: [String] = []) -> CategorisedPRs {
         previousCategorised = categorised
+        let teamMemberSet = Set(teamMembers)
 
         var myPRs: [PullRequest] = []
         var needsMyReview: [PullRequest] = []
         var newActivity: [PullRequest] = []
 
         for pr in prs {
-            // Rule 1: authored by current user - first match wins
             if pr.author == currentUser {
                 myPRs.append(pr)
                 seedBaselineIfNeeded(pr)
                 continue
             }
 
-            // Rule 2: review requested and not yet reviewed
-            let isReviewRequested = isReviewRequestedForMe(pr)
             let hasReviewed = pr.latestVerdictByUser[currentUser] != nil
+            let needsReview = isReviewRequestedForMe(pr) || teamMemberSet.contains(pr.author)
 
-            if isReviewRequested && !hasReviewed {
+            if needsReview && !hasReviewed {
                 needsMyReview.append(pr)
                 seedBaselineIfNeeded(pr)
                 continue

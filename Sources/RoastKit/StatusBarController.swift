@@ -11,8 +11,6 @@ public final class StatusBarController: NSObject {
     private var newCommentCounts: [String: Int] = [:]
     private var statusText: String = "Not configured"
 
-    private static let menuWidth: CGFloat = 420
-
     public var onRefresh: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
     public var onPRClicked: ((PullRequest) -> Void)?
@@ -95,15 +93,14 @@ public final class StatusBarController: NSObject {
 
     private func rebuildMenu() {
         let menu = NSMenu()
-        menu.minimumWidth = Self.menuWidth
 
         addSection(to: menu, title: "Needs My Review", prs: categorised.needsMyReview, subtitle: reviewSubtitle)
         addSection(to: menu, title: "My PRs", prs: categorised.myPRs, subtitle: myPRSubtitle)
         addSection(to: menu, title: "New Activity", prs: categorised.newActivity, subtitle: activitySubtitle)
 
         if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && categorised.newActivity.isEmpty && !errorState {
-            let emptyItem = NSMenuItem()
-            emptyItem.view = makeEmptyView()
+            let emptyItem = NSMenuItem(title: "No PRs need your attention", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
             menu.addItem(emptyItem)
         }
 
@@ -121,6 +118,11 @@ public final class StatusBarController: NSObject {
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(settingsClicked), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let versionItem = NSMenuItem(title: "Roast \(version)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
 
         menu.addItem(.separator())
 
@@ -141,7 +143,9 @@ public final class StatusBarController: NSObject {
         let sorted = prs.sorted { $0.createdAt > $1.createdAt }
         for pr in sorted {
             let item = NSMenuItem()
-            item.view = makePRView(pr: pr, subtitleAttr: subtitle(pr))
+            item.attributedTitle = prAttributedTitle(pr: pr, subtitle: subtitle(pr))
+            item.action = #selector(prClicked(_:))
+            item.target = self
             item.representedObject = pr
             menu.addItem(item)
         }
@@ -149,184 +153,115 @@ public final class StatusBarController: NSObject {
         menu.addItem(.separator())
     }
 
-    // MARK: - PR Row View
+    // MARK: - Attributed Titles
 
-    private func makePRView(pr: PullRequest, subtitleAttr: NSAttributedString) -> NSView {
-        let rowHeight: CGFloat = 44
-        let container = PRRowView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: rowHeight))
-        container.target = self
-        container.action = #selector(prViewClicked(_:))
-        container.pr = pr
-
-        let titleLabel = NSTextField(labelWithString: pr.title)
-        titleLabel.font = pr.isDraft
-            ? NSFont.systemFont(ofSize: 13, weight: .regular)
-            : NSFont.systemFont(ofSize: 13, weight: .medium)
-        titleLabel.textColor = pr.isDraft ? .secondaryLabelColor : .labelColor
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.maximumNumberOfLines = 1
-
-        let subtitleLabel = NSTextField(labelWithAttributedString: subtitleAttr)
-        subtitleLabel.lineBreakMode = .byTruncatingTail
-        subtitleLabel.maximumNumberOfLines = 1
-        subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        let ageLabel = NSTextField(labelWithString: pr.relativeAge)
-        ageLabel.font = .systemFont(ofSize: 11)
-        ageLabel.textColor = .secondaryLabelColor
-        ageLabel.alignment = .right
-        ageLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        ageLabel.setContentHuggingPriority(.required, for: .horizontal)
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        ageLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(titleLabel)
-        container.addSubview(subtitleLabel)
-        container.addSubview(ageLabel)
-
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -12),
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
-
-            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
-
-            ageLabel.leadingAnchor.constraint(greaterThanOrEqualTo: subtitleLabel.trailingAnchor, constant: 8),
-            ageLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
-            ageLabel.centerYAnchor.constraint(equalTo: subtitleLabel.centerYAnchor),
-        ])
-
-        return container
-    }
-
-    private func makeEmptyView() -> NSView {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: 36))
-        let label = NSTextField(labelWithString: "No PRs need your attention")
-        label.font = .systemFont(ofSize: 12)
-        label.textColor = .tertiaryLabelColor
-        label.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-        ])
-        return container
-    }
-
-    // MARK: - Subtitle Formatters
-
+    private static let titleFont = NSFont.systemFont(ofSize: 13, weight: .medium)
+    private static let titleDraftFont = NSFont.systemFont(ofSize: 13, weight: .regular)
     private static let subtitleFont = NSFont.systemFont(ofSize: 11)
-    private static let subtitleAttrs: [NSAttributedString.Key: Any] = [
+
+    private func prAttributedTitle(pr: PullRequest, subtitle: NSAttributedString) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+
+        let titleAttrs: [NSAttributedString.Key: Any] = [
+            .font: pr.isDraft ? Self.titleDraftFont : Self.titleFont,
+            .foregroundColor: pr.isDraft ? NSColor.secondaryLabelColor : NSColor.labelColor,
+        ]
+        result.append(NSAttributedString(string: pr.title, attributes: titleAttrs))
+        result.append(NSAttributedString(string: "\n"))
+        result.append(subtitle)
+
+        return result
+    }
+
+    private static let subAttrs: [NSAttributedString.Key: Any] = [
         .font: subtitleFont,
         .foregroundColor: NSColor.secondaryLabelColor,
     ]
 
-    private func styledSubtitle(_ parts: [SubtitlePart]) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        for part in parts {
-            switch part {
-            case .repoPill(let name):
-                let pillAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                    .backgroundColor: NSColor.quaternaryLabelColor,
-                ]
-                result.append(NSAttributedString(string: " \(name) ", attributes: pillAttrs))
-                result.append(NSAttributedString(string: " ", attributes: Self.subtitleAttrs))
-            case .ciDot(let status):
-                let colour: NSColor
-                switch status {
-                case .success: colour = .systemGreen
-                case .failure, .error: colour = .systemRed
-                case .pending: colour = .systemYellow
-                case .expected, .unknown: colour = .tertiaryLabelColor
-                }
-                let dotAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 9),
-                    .foregroundColor: colour,
-                ]
-                result.append(NSAttributedString(string: "\u{25CF} ", attributes: dotAttrs))
-            case .text(let text):
-                result.append(NSAttributedString(string: text, attributes: Self.subtitleAttrs))
-            case .separator:
-                result.append(NSAttributedString(string: " \u{00b7} ", attributes: Self.subtitleAttrs))
-            case .coloured(let text, let colour):
-                var attrs = Self.subtitleAttrs
-                attrs[.foregroundColor] = colour
-                result.append(NSAttributedString(string: text, attributes: attrs))
-            }
+    private func ciDotString(_ status: CIStatus) -> NSAttributedString {
+        let colour: NSColor
+        switch status {
+        case .success: colour = .systemGreen
+        case .failure, .error: colour = .systemRed
+        case .pending: colour = .systemYellow
+        case .expected, .unknown: colour = .tertiaryLabelColor
         }
-        return result
+        return NSAttributedString(string: "\u{25CF}", attributes: [
+            .font: NSFont.systemFont(ofSize: 9),
+            .foregroundColor: colour,
+        ])
     }
 
-    private enum SubtitlePart {
-        case repoPill(String)
-        case ciDot(CIStatus)
-        case text(String)
-        case separator
-        case coloured(String, NSColor)
+    private func sep() -> NSAttributedString {
+        NSAttributedString(string: " \u{00b7} ", attributes: Self.subAttrs)
+    }
+
+    private func sub(_ text: String) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: Self.subAttrs)
+    }
+
+    private func coloured(_ text: String, _ colour: NSColor) -> NSAttributedString {
+        var attrs = Self.subAttrs
+        attrs[.foregroundColor] = colour
+        return NSAttributedString(string: text, attributes: attrs)
     }
 
     private func reviewSubtitle(_ pr: PullRequest) -> NSAttributedString {
-        var parts: [SubtitlePart] = [
-            .repoPill(pr.repoName),
-            .ciDot(pr.ciStatus),
-            .text("#\(pr.number)"),
-            .separator,
-            .text(pr.author),
-        ]
-        if pr.isDraft {
-            parts.insert(.coloured("Draft", .systemOrange), at: 0)
-            parts.insert(.separator, at: 1)
-        }
-        return styledSubtitle(parts)
+        let result = NSMutableAttributedString()
+        if pr.isDraft { result.append(coloured("Draft", .systemOrange)); result.append(sep()) }
+        result.append(sub(pr.repoName))
+        result.append(sub(" "))
+        result.append(ciDotString(pr.ciStatus))
+        result.append(sep())
+        result.append(sub("#\(pr.number)"))
+        result.append(sep())
+        result.append(sub(pr.author))
+        result.append(sep())
+        result.append(sub(pr.relativeAge))
+        return result
     }
 
     private func myPRSubtitle(_ pr: PullRequest) -> NSAttributedString {
-        var parts: [SubtitlePart] = [
-            .repoPill(pr.repoName),
-            .ciDot(pr.ciStatus),
-            .text("#\(pr.number)"),
-            .separator,
-        ]
-        if pr.isDraft {
-            parts.append(.coloured("Draft", .systemOrange))
-            parts.append(.separator)
-        }
+        let result = NSMutableAttributedString()
+        if pr.isDraft { result.append(coloured("Draft", .systemOrange)); result.append(sep()) }
+        result.append(sub(pr.repoName))
+        result.append(sub(" "))
+        result.append(ciDotString(pr.ciStatus))
+        result.append(sep())
+        result.append(sub("#\(pr.number)"))
+        result.append(sep())
         switch pr.overallVerdict {
-        case .approved:
-            parts.append(.coloured("\u{2713} Approved", .systemGreen))
-        case .changesRequested:
-            parts.append(.coloured("\u{2717} Changes requested", .systemRed))
-        case .pending:
-            parts.append(.text("Pending review"))
-        case .commented:
-            parts.append(.text("Commented"))
+        case .approved: result.append(coloured("\u{2713} Approved", .systemGreen))
+        case .changesRequested: result.append(coloured("\u{2717} Changes requested", .systemRed))
+        case .pending: result.append(sub("Pending review"))
+        case .commented: result.append(sub("Commented"))
         }
-        return styledSubtitle(parts)
+        result.append(sep())
+        result.append(sub(pr.relativeAge))
+        return result
     }
 
     private func activitySubtitle(_ pr: PullRequest) -> NSAttributedString {
-        var parts: [SubtitlePart] = [
-            .repoPill(pr.repoName),
-            .ciDot(pr.ciStatus),
-            .text("#\(pr.number)"),
-        ]
+        let result = NSMutableAttributedString()
+        result.append(sub(pr.repoName))
+        result.append(sub(" "))
+        result.append(ciDotString(pr.ciStatus))
+        result.append(sep())
+        result.append(sub("#\(pr.number)"))
         let count = newCommentCounts[pr.id] ?? 0
         if count > 0 {
-            parts.append(.separator)
-            parts.append(.coloured("\(count) new comment\(count == 1 ? "" : "s")", .systemBlue))
+            result.append(sep())
+            result.append(coloured("\(count) new comment\(count == 1 ? "" : "s")", .systemBlue))
         }
-        return styledSubtitle(parts)
+        result.append(sep())
+        result.append(sub(pr.relativeAge))
+        return result
     }
 
     // MARK: - Actions
 
-    @objc private func prViewClicked(_ sender: PRRowView) {
-        guard let pr = sender.pr else { return }
-        currentMenu?.cancelTracking()
+    @objc private func prClicked(_ sender: NSMenuItem) {
+        guard let pr = sender.representedObject as? PullRequest else { return }
 
         let cmdHeld = NSEvent.modifierFlags.contains(.command)
         if cmdHeld, let jiraURL = pr.jiraURL {
@@ -347,72 +282,5 @@ public final class StatusBarController: NSObject {
 
     @objc private func quitClicked() {
         NSApplication.shared.terminate(nil)
-    }
-}
-
-// MARK: - PRRowView
-
-private class PRRowView: NSView {
-    var pr: PullRequest?
-    weak var target: AnyObject?
-    var action: Selector?
-    private var trackingRef: NSTrackingArea?
-
-    private var isHighlighted: Bool = false {
-        didSet {
-            guard isHighlighted != oldValue else { return }
-            subviews.compactMap { $0 as? NSTextField }.forEach { label in
-                if isHighlighted {
-                    label.textColor = .white
-                } else if label.font?.pointSize ?? 0 > 12 {
-                    label.textColor = (pr?.isDraft == true) ? .secondaryLabelColor : .labelColor
-                } else {
-                    label.textColor = .secondaryLabelColor
-                }
-            }
-            needsDisplay = true
-        }
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if isHighlighted {
-            NSColor.selectedContentBackgroundColor.setFill()
-            NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 1), xRadius: 4, yRadius: 4).fill()
-        }
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        if let target, let action {
-            NSApp.sendAction(action, to: target, from: self)
-        }
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window != nil { ensureTrackingArea() }
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        ensureTrackingArea()
-    }
-
-    private func ensureTrackingArea() {
-        if let old = trackingRef { removeTrackingArea(old) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        trackingRef = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHighlighted = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHighlighted = false
     }
 }

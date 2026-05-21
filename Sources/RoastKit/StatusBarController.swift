@@ -119,17 +119,17 @@ public final class StatusBarController: NSObject {
         self.currentMenu = menu
     }
 
-    private func addSection(to menu: NSMenu, title: String, prs: [PullRequest], subtitle: (PullRequest) -> String) {
+    private func addSection(to menu: NSMenu, title: String, prs: [PullRequest], subtitle: (PullRequest) -> NSAttributedString) {
         guard !prs.isEmpty else { return }
 
         let header = NSMenuItem(title: "\(title) (\(prs.count))", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
 
-        let sorted = prs.sorted { $0.createdAt < $1.createdAt }
+        let sorted = prs.sorted { $0.createdAt > $1.createdAt }
         for pr in sorted {
             let item = NSMenuItem()
-            item.view = makePRView(title: pr.title, subtitle: subtitle(pr), pr: pr)
+            item.view = makePRView(pr: pr, subtitleAttr: subtitle(pr))
             item.representedObject = pr
             menu.addItem(item)
         }
@@ -139,22 +139,22 @@ public final class StatusBarController: NSObject {
 
     // MARK: - PR Row View
 
-    private func makePRView(title: String, subtitle: String, pr: PullRequest) -> NSView {
+    private func makePRView(pr: PullRequest, subtitleAttr: NSAttributedString) -> NSView {
         let rowHeight: CGFloat = 44
         let container = PRRowView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: rowHeight))
         container.target = self
         container.action = #selector(prViewClicked(_:))
         container.pr = pr
 
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        titleLabel.textColor = .labelColor
+        let titleLabel = NSTextField(labelWithString: pr.title)
+        titleLabel.font = pr.isDraft
+            ? NSFont.systemFont(ofSize: 13, weight: .regular)
+            : NSFont.systemFont(ofSize: 13, weight: .medium)
+        titleLabel.textColor = pr.isDraft ? .secondaryLabelColor : .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.maximumNumberOfLines = 1
 
-        let subtitleLabel = NSTextField(labelWithString: subtitle)
-        subtitleLabel.font = .systemFont(ofSize: 11)
-        subtitleLabel.textColor = .secondaryLabelColor
+        let subtitleLabel = NSTextField(labelWithAttributedString: subtitleAttr)
         subtitleLabel.lineBreakMode = .byTruncatingTail
         subtitleLabel.maximumNumberOfLines = 1
 
@@ -192,29 +192,67 @@ public final class StatusBarController: NSObject {
 
     // MARK: - Subtitle Formatters
 
-    private func draftPrefix(_ pr: PullRequest) -> String {
-        pr.isDraft ? "Draft \u{00b7} " : ""
-    }
+    private static let subtitleFont = NSFont.systemFont(ofSize: 11)
+    private static let subtitleAttrs: [NSAttributedString.Key: Any] = [
+        .font: subtitleFont,
+        .foregroundColor: NSColor.secondaryLabelColor,
+    ]
 
-    private func reviewSubtitle(_ pr: PullRequest) -> String {
-        "\(draftPrefix(pr))\(pr.repoName) #\(pr.number) \u{00b7} \(pr.author) \u{00b7} \(pr.relativeAge)"
-    }
-
-    private func myPRSubtitle(_ pr: PullRequest) -> String {
-        let verdict: String
-        switch pr.overallVerdict {
-        case .approved: verdict = "\u{2713} Approved"
-        case .changesRequested: verdict = "\u{2717} Changes requested"
-        case .pending: verdict = "Pending review"
-        case .commented: verdict = "Commented"
+    private func styledSubtitle(_ parts: [SubtitlePart]) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        for (i, part) in parts.enumerated() {
+            if i > 0 {
+                result.append(NSAttributedString(string: " \u{00b7} ", attributes: Self.subtitleAttrs))
+            }
+            var attrs = Self.subtitleAttrs
+            if let colour = part.colour { attrs[.foregroundColor] = colour }
+            result.append(NSAttributedString(string: part.text, attributes: attrs))
         }
-        return "\(draftPrefix(pr))\(pr.repoName) #\(pr.number) \u{00b7} \(verdict) \u{00b7} \(pr.relativeAge)"
+        return result
     }
 
-    private func activitySubtitle(_ pr: PullRequest) -> String {
+    private struct SubtitlePart {
+        let text: String
+        var colour: NSColor? = nil
+    }
+
+    private func reviewSubtitle(_ pr: PullRequest) -> NSAttributedString {
+        var parts: [SubtitlePart] = []
+        if pr.isDraft { parts.append(SubtitlePart(text: "Draft", colour: .systemOrange)) }
+        parts.append(SubtitlePart(text: "\(pr.repoName) #\(pr.number)"))
+        parts.append(SubtitlePart(text: pr.author))
+        parts.append(SubtitlePart(text: pr.relativeAge))
+        return styledSubtitle(parts)
+    }
+
+    private func myPRSubtitle(_ pr: PullRequest) -> NSAttributedString {
+        var parts: [SubtitlePart] = []
+        if pr.isDraft { parts.append(SubtitlePart(text: "Draft", colour: .systemOrange)) }
+        parts.append(SubtitlePart(text: "\(pr.repoName) #\(pr.number)"))
+        switch pr.overallVerdict {
+        case .approved:
+            parts.append(SubtitlePart(text: "\u{2713} Approved", colour: .systemGreen))
+        case .changesRequested:
+            parts.append(SubtitlePart(text: "\u{2717} Changes requested", colour: .systemRed))
+        case .pending:
+            parts.append(SubtitlePart(text: "Pending review"))
+        case .commented:
+            parts.append(SubtitlePart(text: "Commented"))
+        }
+        parts.append(SubtitlePart(text: pr.relativeAge))
+        return styledSubtitle(parts)
+    }
+
+    private func activitySubtitle(_ pr: PullRequest) -> NSAttributedString {
+        var parts: [SubtitlePart] = []
+        if pr.isDraft { parts.append(SubtitlePart(text: "Draft", colour: .systemOrange)) }
+        parts.append(SubtitlePart(text: "\(pr.repoName) #\(pr.number)"))
         let count = newCommentCounts[pr.id] ?? 0
-        let comments = count > 0 ? "\(count) new comment\(count == 1 ? "" : "s") \u{00b7} " : ""
-        return "\(draftPrefix(pr))\(pr.repoName) #\(pr.number) \u{00b7} \(comments)\(pr.relativeAge)"
+        if count > 0 {
+            parts.append(SubtitlePart(text: "\(count) new comment\(count == 1 ? "" : "s")", colour: .systemBlue))
+        }
+        parts.append(SubtitlePart(text: pr.relativeAge))
+        return styledSubtitle(parts)
     }
 
     // MARK: - Actions

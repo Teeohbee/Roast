@@ -4,7 +4,7 @@ import ServiceManagement
 @MainActor
 public class AppDelegate: NSObject, NSApplicationDelegate {
     private var preferences: PreferencesStore!
-    private var statusBar: StatusBarController!
+    private var statusBarController: StatusBarController!
     private var notifications: NotificationManager!
     private var poller: Poller!
     private var preferencesWindow: PreferencesWindow!
@@ -18,24 +18,24 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         setupMainMenu()
 
         preferences = PreferencesStore()
-        statusBar = StatusBarController()
+        statusBarController = StatusBarController()
         notifications = NotificationManager()
         poller = Poller(
             preferences: preferences,
-            statusBar: statusBar,
+            statusBar: statusBarController,
             notifications: notifications
         )
         preferencesWindow = PreferencesWindow(preferences: preferences)
 
-        statusBar.onRefresh = { [weak self] in
+        statusBarController.onRefresh = { [weak self] in
             self?.poller.poll()
         }
 
-        statusBar.onOpenSettings = { [weak self] in
+        statusBarController.onOpenSettings = { [weak self] in
             self?.preferencesWindow.show()
         }
 
-        statusBar.onPRClicked = { [weak self] pr in
+        statusBarController.onPRClicked = { [weak self] pr in
             self?.poller.markSeen(pr)
         }
 

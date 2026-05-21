@@ -20,6 +20,7 @@ public final class StatusBarController: NSObject {
     public override init() {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
+        statusItem.behavior = .removalAllowed
         statusItem.button?.action = #selector(statusItemClicked(_:))
         statusItem.button?.target = self
         updateIcon()
@@ -70,6 +71,17 @@ public final class StatusBarController: NSObject {
         } else {
             statusItem.button?.title = ""
         }
+
+        let label: String
+        if errorState {
+            label = "Roast - error"
+        } else if badgeCount > 0 {
+            label = "Roast - \(badgeCount) items need attention"
+        } else {
+            label = "Roast - no items"
+        }
+        statusItem.button?.setAccessibilityLabel(label)
+        statusItem.button?.toolTip = label
     }
 
     // MARK: - Click

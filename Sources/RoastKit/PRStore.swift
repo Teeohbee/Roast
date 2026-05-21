@@ -24,7 +24,6 @@ public final class PRStore {
         var myPRs: [PullRequest] = []
         var needsMyReview: [PullRequest] = []
         var newActivity: [PullRequest] = []
-        var drafts: [PullRequest] = []
 
         for pr in prs {
             if pr.author == currentUser {
@@ -36,12 +35,8 @@ public final class PRStore {
             let hasReviewed = pr.latestVerdictByUser[currentUser] != nil
             let needsReview = isReviewRequestedForMe(pr) || teamMemberSet.contains(pr.author)
 
-            if needsReview && !hasReviewed {
-                if pr.isDraft {
-                    drafts.append(pr)
-                } else {
-                    needsMyReview.append(pr)
-                }
+            if needsReview && !hasReviewed && !pr.isDraft {
+                needsMyReview.append(pr)
                 seedBaselineIfNeeded(pr)
                 continue
             }
@@ -56,8 +51,7 @@ public final class PRStore {
         categorised = CategorisedPRs(
             needsMyReview: needsMyReview,
             myPRs: myPRs,
-            newActivity: newActivity,
-            drafts: drafts
+            newActivity: newActivity
         )
         return categorised
     }

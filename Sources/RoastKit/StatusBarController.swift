@@ -89,11 +89,7 @@ public final class StatusBarController: NSObject {
         addSection(to: menu, title: "My PRs", prs: categorised.myPRs, subtitle: myPRSubtitle)
         addSection(to: menu, title: "New Activity", prs: categorised.newActivity, subtitle: activitySubtitle)
 
-        if !categorised.drafts.isEmpty {
-            addDraftsSection(to: menu)
-        }
-
-        if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && categorised.newActivity.isEmpty && categorised.drafts.isEmpty && !errorState {
+        if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && categorised.newActivity.isEmpty && !errorState {
             let emptyItem = NSMenuItem()
             emptyItem.view = makeEmptyView()
             menu.addItem(emptyItem)
@@ -139,72 +135,6 @@ public final class StatusBarController: NSObject {
         }
 
         menu.addItem(.separator())
-    }
-
-    private func addDraftsSection(to menu: NSMenu) {
-        let draftsItem = NSMenuItem(title: "Drafts (\(categorised.drafts.count))", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        submenu.minimumWidth = Self.menuWidth
-
-        let sorted = categorised.drafts.sorted { $0.createdAt > $1.createdAt }
-        for pr in sorted {
-            let item = NSMenuItem()
-            item.view = makePRView(pr: pr, subtitleAttr: reviewSubtitle(pr))
-            item.representedObject = pr
-            submenu.addItem(item)
-        }
-
-        draftsItem.submenu = submenu
-
-        let headerItem = NSMenuItem()
-        headerItem.view = makeDraftsHeader(count: categorised.drafts.count)
-        headerItem.submenu = submenu
-        menu.addItem(headerItem)
-        menu.addItem(.separator())
-    }
-
-    // MARK: - Section Header
-
-    private func makeDraftsHeader(count: Int) -> NSView {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: 26))
-
-        let arrow = NSTextField(labelWithString: "\u{25B6}")
-        arrow.font = .systemFont(ofSize: 9)
-        arrow.textColor = .systemOrange
-
-        let titleLabel = NSTextField(labelWithString: "Drafts")
-        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        titleLabel.textColor = .secondaryLabelColor
-
-        let badgeLabel = NSTextField(labelWithString: "\(count)")
-        badgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
-        badgeLabel.textColor = .systemOrange
-        badgeLabel.alignment = .center
-        badgeLabel.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.15)
-        badgeLabel.drawsBackground = true
-        badgeLabel.isBezeled = false
-        badgeLabel.wantsLayer = true
-        badgeLabel.layer?.cornerRadius = 7
-
-        for v in [arrow, titleLabel, badgeLabel] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(v)
-        }
-
-        NSLayoutConstraint.activate([
-            arrow.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 22),
-            arrow.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-
-            titleLabel.leadingAnchor.constraint(equalTo: arrow.trailingAnchor, constant: 6),
-            titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-
-            badgeLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
-            badgeLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            badgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
-            badgeLabel.heightAnchor.constraint(equalToConstant: 16),
-        ])
-
-        return container
     }
 
     // MARK: - PR Row View

@@ -7,6 +7,15 @@ public enum ReviewVerdict: String, Equatable, Sendable {
     case pending = "PENDING"
 }
 
+public enum CIStatus: String, Equatable, Sendable {
+    case success = "SUCCESS"
+    case failure = "FAILURE"
+    case pending = "PENDING"
+    case error = "ERROR"
+    case expected = "EXPECTED"
+    case unknown
+}
+
 public struct Review: Equatable, Sendable {
     public let author: String
     public let verdict: ReviewVerdict
@@ -31,6 +40,7 @@ public struct PullRequest: Sendable {
     public let latestReviews: [Review]
     public let commentCount: Int
     public let isDraft: Bool
+    public let ciStatus: CIStatus
 
     public init(
         id: String,
@@ -45,7 +55,8 @@ public struct PullRequest: Sendable {
         bodyMentionsTeam: Bool,
         latestReviews: [Review],
         commentCount: Int,
-        isDraft: Bool = false
+        isDraft: Bool = false,
+        ciStatus: CIStatus = .unknown
     ) {
         self.id = id
         self.number = number
@@ -60,6 +71,17 @@ public struct PullRequest: Sendable {
         self.latestReviews = latestReviews
         self.commentCount = commentCount
         self.isDraft = isDraft
+        self.ciStatus = ciStatus
+    }
+
+    public var jiraTicket: String? {
+        let pattern = /[A-Z]+-\d+/
+        return title.firstMatch(of: pattern).map { String($0.output) }
+    }
+
+    public var jiraURL: URL? {
+        guard let ticket = jiraTicket else { return nil }
+        return URL(string: "https://simplybusiness.atlassian.net/browse/\(ticket)")
     }
 
     public var relativeAge: String {
@@ -108,14 +130,16 @@ public struct CategorisedPRs: Equatable, Sendable {
     public let needsMyReview: [PullRequest]
     public let myPRs: [PullRequest]
     public let newActivity: [PullRequest]
+    public let drafts: [PullRequest]
 
-    public init(needsMyReview: [PullRequest], myPRs: [PullRequest], newActivity: [PullRequest]) {
+    public init(needsMyReview: [PullRequest], myPRs: [PullRequest], newActivity: [PullRequest], drafts: [PullRequest] = []) {
         self.needsMyReview = needsMyReview
         self.myPRs = myPRs
         self.newActivity = newActivity
+        self.drafts = drafts
     }
 
-    public static let empty = CategorisedPRs(needsMyReview: [], myPRs: [], newActivity: [])
+    public static let empty = CategorisedPRs(needsMyReview: [], myPRs: [], newActivity: [], drafts: [])
 }
 
 public enum PREvent: Equatable, Sendable {

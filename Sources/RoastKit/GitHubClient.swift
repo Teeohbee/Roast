@@ -79,6 +79,15 @@ public final class GitHubClient: @unchecked Sendable {
             }
           }
           comments { totalCount }
+          commits(last: 1) {
+            nodes {
+              commit {
+                statusCheckRollup {
+                  state
+                }
+              }
+            }
+          }
         }
         """
 
@@ -160,7 +169,8 @@ public final class GitHubClient: @unchecked Sendable {
                             bodyMentionsTeam: true,
                             latestReviews: existing.latestReviews,
                             commentCount: existing.commentCount,
-                            isDraft: existing.isDraft
+                            isDraft: existing.isDraft,
+                            ciStatus: existing.ciStatus
                         )
                     }
                 } else {
@@ -220,6 +230,16 @@ public final class GitHubClient: @unchecked Sendable {
         let commentCount = (node["comments"] as? [String: Any])?["totalCount"] as? Int ?? 0
         let isDraft = node["isDraft"] as? Bool ?? false
 
+        var ciStatus: CIStatus = .unknown
+        if let commits = node["commits"] as? [String: Any],
+           let commitNodes = commits["nodes"] as? [[String: Any]],
+           let lastCommit = commitNodes.last,
+           let commit = lastCommit["commit"] as? [String: Any],
+           let rollup = commit["statusCheckRollup"] as? [String: Any],
+           let state = rollup["state"] as? String {
+            ciStatus = CIStatus(rawValue: state) ?? .unknown
+        }
+
         return PullRequest(
             id: id,
             number: number,
@@ -233,7 +253,8 @@ public final class GitHubClient: @unchecked Sendable {
             bodyMentionsTeam: bodyMentionsTeam,
             latestReviews: reviews,
             commentCount: commentCount,
-            isDraft: isDraft
+            isDraft: isDraft,
+            ciStatus: ciStatus
         )
     }
 

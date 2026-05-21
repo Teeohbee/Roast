@@ -11,7 +11,7 @@ public final class StatusBarController: NSObject {
     private var newCommentCounts: [String: Int] = [:]
     private var statusText: String = "Not configured"
 
-    private static let menuWidth: CGFloat = 340
+    private static let menuWidth: CGFloat = 420
 
     public var onRefresh: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
@@ -85,11 +85,15 @@ public final class StatusBarController: NSObject {
         let menu = NSMenu()
         menu.minimumWidth = Self.menuWidth
 
-        addSection(to: menu, title: "Needs My Review", prs: categorised.needsMyReview, subtitle: reviewSubtitle)
-        addSection(to: menu, title: "My PRs", prs: categorised.myPRs, subtitle: myPRSubtitle)
-        addSection(to: menu, title: "New Activity", prs: categorised.newActivity, subtitle: activitySubtitle)
+        addSection(to: menu, icon: "\u{1F440}", title: "Needs My Review", prs: categorised.needsMyReview, badgeColour: .systemRed, subtitle: reviewSubtitle)
+        addSection(to: menu, icon: "\u{1F4E4}", title: "My PRs", prs: categorised.myPRs, badgeColour: .systemGray, subtitle: myPRSubtitle)
+        addSection(to: menu, icon: "\u{1F4AC}", title: "New Activity", prs: categorised.newActivity, badgeColour: .systemBlue, subtitle: activitySubtitle)
 
-        if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && categorised.newActivity.isEmpty && !errorState {
+        if !categorised.drafts.isEmpty {
+            addDraftsSection(to: menu)
+        }
+
+        if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && categorised.newActivity.isEmpty && categorised.drafts.isEmpty && !errorState {
             let emptyItem = NSMenuItem()
             emptyItem.view = makeEmptyView()
             menu.addItem(emptyItem)
@@ -119,12 +123,12 @@ public final class StatusBarController: NSObject {
         self.currentMenu = menu
     }
 
-    private func addSection(to menu: NSMenu, title: String, prs: [PullRequest], subtitle: (PullRequest) -> NSAttributedString) {
+    private func addSection(to menu: NSMenu, icon: String, title: String, prs: [PullRequest], badgeColour: NSColor, subtitle: (PullRequest) -> NSAttributedString) {
         guard !prs.isEmpty else { return }
 
-        let header = NSMenuItem(title: "\(title) (\(prs.count))", action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
+        let headerItem = NSMenuItem()
+        headerItem.view = makeSectionHeader(icon: icon, title: title, count: prs.count, badgeColour: badgeColour)
+        menu.addItem(headerItem)
 
         let sorted = prs.sorted { $0.createdAt > $1.createdAt }
         for pr in sorted {
@@ -135,6 +139,113 @@ public final class StatusBarController: NSObject {
         }
 
         menu.addItem(.separator())
+    }
+
+    private func addDraftsSection(to menu: NSMenu) {
+        let draftsItem = NSMenuItem(title: "Drafts (\(categorised.drafts.count))", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.minimumWidth = Self.menuWidth
+
+        let sorted = categorised.drafts.sorted { $0.createdAt > $1.createdAt }
+        for pr in sorted {
+            let item = NSMenuItem()
+            item.view = makePRView(pr: pr, subtitleAttr: reviewSubtitle(pr))
+            item.representedObject = pr
+            submenu.addItem(item)
+        }
+
+        draftsItem.submenu = submenu
+
+        let headerItem = NSMenuItem()
+        headerItem.view = makeDraftsHeader(count: categorised.drafts.count)
+        headerItem.submenu = submenu
+        menu.addItem(headerItem)
+        menu.addItem(.separator())
+    }
+
+    // MARK: - Section Header
+
+    private func makeSectionHeader(icon: String, title: String, count: Int, badgeColour: NSColor) -> NSView {
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: 28))
+
+        let iconLabel = NSTextField(labelWithString: icon)
+        iconLabel.font = .systemFont(ofSize: 12)
+
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.textColor = .secondaryLabelColor
+
+        let badgeLabel = NSTextField(labelWithString: "\(count)")
+        badgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
+        badgeLabel.textColor = .white
+        badgeLabel.alignment = .center
+        badgeLabel.backgroundColor = badgeColour
+        badgeLabel.drawsBackground = true
+        badgeLabel.isBezeled = false
+        badgeLabel.wantsLayer = true
+        badgeLabel.layer?.cornerRadius = 7
+
+        for v in [iconLabel, titleLabel, badgeLabel] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(v)
+        }
+
+        NSLayoutConstraint.activate([
+            iconLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
+            iconLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+
+            titleLabel.leadingAnchor.constraint(equalTo: iconLabel.trailingAnchor, constant: 6),
+            titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+
+            badgeLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
+            badgeLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            badgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
+            badgeLabel.heightAnchor.constraint(equalToConstant: 16),
+        ])
+
+        return container
+    }
+
+    private func makeDraftsHeader(count: Int) -> NSView {
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.menuWidth, height: 26))
+
+        let arrow = NSTextField(labelWithString: "\u{25B6}")
+        arrow.font = .systemFont(ofSize: 9)
+        arrow.textColor = .systemOrange
+
+        let titleLabel = NSTextField(labelWithString: "Drafts")
+        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        titleLabel.textColor = .secondaryLabelColor
+
+        let badgeLabel = NSTextField(labelWithString: "\(count)")
+        badgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
+        badgeLabel.textColor = .systemOrange
+        badgeLabel.alignment = .center
+        badgeLabel.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.15)
+        badgeLabel.drawsBackground = true
+        badgeLabel.isBezeled = false
+        badgeLabel.wantsLayer = true
+        badgeLabel.layer?.cornerRadius = 7
+
+        for v in [arrow, titleLabel, badgeLabel] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(v)
+        }
+
+        NSLayoutConstraint.activate([
+            arrow.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 22),
+            arrow.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+
+            titleLabel.leadingAnchor.constraint(equalTo: arrow.trailingAnchor, constant: 6),
+            titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+
+            badgeLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
+            badgeLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            badgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
+            badgeLabel.heightAnchor.constraint(equalToConstant: 16),
+        ])
+
+        return container
     }
 
     // MARK: - PR Row View
@@ -200,58 +311,120 @@ public final class StatusBarController: NSObject {
 
     private func styledSubtitle(_ parts: [SubtitlePart]) -> NSAttributedString {
         let result = NSMutableAttributedString()
-        for (i, part) in parts.enumerated() {
-            if i > 0 {
+        for part in parts {
+            switch part {
+            case .repoPill(let name):
+                let pillAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .backgroundColor: NSColor.quaternaryLabelColor,
+                ]
+                result.append(NSAttributedString(string: " \(name) ", attributes: pillAttrs))
+                result.append(NSAttributedString(string: " ", attributes: Self.subtitleAttrs))
+            case .ciDot(let status):
+                let colour: NSColor
+                switch status {
+                case .success: colour = .systemGreen
+                case .failure, .error: colour = .systemRed
+                case .pending: colour = .systemYellow
+                case .expected, .unknown: colour = .tertiaryLabelColor
+                }
+                let dotAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 9),
+                    .foregroundColor: colour,
+                ]
+                result.append(NSAttributedString(string: "\u{25CF} ", attributes: dotAttrs))
+            case .text(let text):
+                result.append(NSAttributedString(string: text, attributes: Self.subtitleAttrs))
+            case .separator:
                 result.append(NSAttributedString(string: " \u{00b7} ", attributes: Self.subtitleAttrs))
+            case .coloured(let text, let colour):
+                var attrs = Self.subtitleAttrs
+                attrs[.foregroundColor] = colour
+                result.append(NSAttributedString(string: text, attributes: attrs))
+            case .age(let pr):
+                let ageText = pr.relativeAge
+                let colour = ageColour(pr)
+                var attrs = Self.subtitleAttrs
+                attrs[.foregroundColor] = colour
+                result.append(NSAttributedString(string: ageText, attributes: attrs))
             }
-            var attrs = Self.subtitleAttrs
-            if let colour = part.colour { attrs[.foregroundColor] = colour }
-            result.append(NSAttributedString(string: part.text, attributes: attrs))
         }
         return result
     }
 
-    private struct SubtitlePart {
-        let text: String
-        var colour: NSColor? = nil
+    private func ageColour(_ pr: PullRequest) -> NSColor {
+        let days = Int(Date().timeIntervalSince(pr.createdAt)) / 86400
+        if days > 7 { return .systemRed }
+        if days > 1 { return .systemOrange }
+        return .secondaryLabelColor
+    }
+
+    private enum SubtitlePart {
+        case repoPill(String)
+        case ciDot(CIStatus)
+        case text(String)
+        case separator
+        case coloured(String, NSColor)
+        case age(PullRequest)
     }
 
     private func reviewSubtitle(_ pr: PullRequest) -> NSAttributedString {
-        var parts: [SubtitlePart] = []
-        if pr.isDraft { parts.append(SubtitlePart(text: "Draft", colour: .systemOrange)) }
-        parts.append(SubtitlePart(text: "\(pr.repoName) #\(pr.number)"))
-        parts.append(SubtitlePart(text: pr.author))
-        parts.append(SubtitlePart(text: pr.relativeAge))
+        var parts: [SubtitlePart] = [
+            .repoPill(pr.repoName),
+            .ciDot(pr.ciStatus),
+            .text("#\(pr.number)"),
+            .separator,
+            .text(pr.author),
+            .separator,
+            .age(pr),
+        ]
+        if pr.isDraft {
+            parts.insert(.coloured("Draft", .systemOrange), at: 0)
+            parts.insert(.separator, at: 1)
+        }
         return styledSubtitle(parts)
     }
 
     private func myPRSubtitle(_ pr: PullRequest) -> NSAttributedString {
-        var parts: [SubtitlePart] = []
-        if pr.isDraft { parts.append(SubtitlePart(text: "Draft", colour: .systemOrange)) }
-        parts.append(SubtitlePart(text: "\(pr.repoName) #\(pr.number)"))
+        var parts: [SubtitlePart] = [
+            .repoPill(pr.repoName),
+            .ciDot(pr.ciStatus),
+            .text("#\(pr.number)"),
+            .separator,
+        ]
+        if pr.isDraft {
+            parts.append(.coloured("Draft", .systemOrange))
+            parts.append(.separator)
+        }
         switch pr.overallVerdict {
         case .approved:
-            parts.append(SubtitlePart(text: "\u{2713} Approved", colour: .systemGreen))
+            parts.append(.coloured("\u{2713} Approved", .systemGreen))
         case .changesRequested:
-            parts.append(SubtitlePart(text: "\u{2717} Changes requested", colour: .systemRed))
+            parts.append(.coloured("\u{2717} Changes requested", .systemRed))
         case .pending:
-            parts.append(SubtitlePart(text: "Pending review"))
+            parts.append(.text("Pending review"))
         case .commented:
-            parts.append(SubtitlePart(text: "Commented"))
+            parts.append(.text("Commented"))
         }
-        parts.append(SubtitlePart(text: pr.relativeAge))
+        parts.append(.separator)
+        parts.append(.age(pr))
         return styledSubtitle(parts)
     }
 
     private func activitySubtitle(_ pr: PullRequest) -> NSAttributedString {
-        var parts: [SubtitlePart] = []
-        if pr.isDraft { parts.append(SubtitlePart(text: "Draft", colour: .systemOrange)) }
-        parts.append(SubtitlePart(text: "\(pr.repoName) #\(pr.number)"))
+        var parts: [SubtitlePart] = [
+            .repoPill(pr.repoName),
+            .ciDot(pr.ciStatus),
+            .text("#\(pr.number)"),
+        ]
         let count = newCommentCounts[pr.id] ?? 0
         if count > 0 {
-            parts.append(SubtitlePart(text: "\(count) new comment\(count == 1 ? "" : "s")", colour: .systemBlue))
+            parts.append(.separator)
+            parts.append(.coloured("\(count) new comment\(count == 1 ? "" : "s")", .systemBlue))
         }
-        parts.append(SubtitlePart(text: pr.relativeAge))
+        parts.append(.separator)
+        parts.append(.age(pr))
         return styledSubtitle(parts)
     }
 
@@ -260,7 +433,13 @@ public final class StatusBarController: NSObject {
     @objc private func prViewClicked(_ sender: PRRowView) {
         guard let pr = sender.pr else { return }
         currentMenu?.cancelTracking()
-        NSWorkspace.shared.open(pr.url)
+
+        let cmdHeld = NSEvent.modifierFlags.contains(.command)
+        if cmdHeld, let jiraURL = pr.jiraURL {
+            NSWorkspace.shared.open(jiraURL)
+        } else {
+            NSWorkspace.shared.open(pr.url)
+        }
         onPRClicked?(pr)
     }
 
@@ -292,7 +471,7 @@ private class PRRowView: NSView {
                 if isHighlighted {
                     label.textColor = .white
                 } else if label.font?.pointSize ?? 0 > 12 {
-                    label.textColor = .labelColor
+                    label.textColor = (pr?.isDraft == true) ? .secondaryLabelColor : .labelColor
                 } else {
                     label.textColor = .secondaryLabelColor
                 }

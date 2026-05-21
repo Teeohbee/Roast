@@ -24,6 +24,7 @@ public final class PRStore {
         var myPRs: [PullRequest] = []
         var needsMyReview: [PullRequest] = []
         var newActivity: [PullRequest] = []
+        var drafts: [PullRequest] = []
 
         for pr in prs {
             if pr.author == currentUser {
@@ -36,12 +37,15 @@ public final class PRStore {
             let needsReview = isReviewRequestedForMe(pr) || teamMemberSet.contains(pr.author)
 
             if needsReview && !hasReviewed {
-                needsMyReview.append(pr)
+                if pr.isDraft {
+                    drafts.append(pr)
+                } else {
+                    needsMyReview.append(pr)
+                }
                 seedBaselineIfNeeded(pr)
                 continue
             }
 
-            // Rule 3: new activity (comment count increased since last seen)
             seedBaselineIfNeeded(pr)
             let lastSeen = seenCommentCounts[pr.id] ?? preferences.lastSeenCommentCount(forPR: pr.id)
             if let baseline = lastSeen, pr.commentCount > baseline {
@@ -52,7 +56,8 @@ public final class PRStore {
         categorised = CategorisedPRs(
             needsMyReview: needsMyReview,
             myPRs: myPRs,
-            newActivity: newActivity
+            newActivity: newActivity,
+            drafts: drafts
         )
         return categorised
     }

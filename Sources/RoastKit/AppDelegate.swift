@@ -45,8 +45,6 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             self?.poller.poll()
         }
 
-        notifications.requestPermission()
-
         if SMAppService.mainApp.status != .enabled {
             try? SMAppService.mainApp.register()
         }

@@ -19,10 +19,12 @@ public enum CIStatus: String, Equatable, Sendable {
 public struct Review: Equatable, Sendable {
     public let author: String
     public let verdict: ReviewVerdict
+    public let submittedAt: Date?
 
-    public init(author: String, verdict: ReviewVerdict) {
+    public init(author: String, verdict: ReviewVerdict, submittedAt: Date? = nil) {
         self.author = author
         self.verdict = verdict
+        self.submittedAt = submittedAt
     }
 }
 
@@ -41,6 +43,7 @@ public struct PullRequest: Sendable {
     public let commentCount: Int
     public let isDraft: Bool
     public let ciStatus: CIStatus
+    public let lastCommitDate: Date?
 
     public init(
         id: String,
@@ -56,7 +59,8 @@ public struct PullRequest: Sendable {
         latestReviews: [Review],
         commentCount: Int,
         isDraft: Bool = false,
-        ciStatus: CIStatus = .unknown
+        ciStatus: CIStatus = .unknown,
+        lastCommitDate: Date? = nil
     ) {
         self.id = id
         self.number = number
@@ -72,6 +76,14 @@ public struct PullRequest: Sendable {
         self.commentCount = commentCount
         self.isDraft = isDraft
         self.ciStatus = ciStatus
+        self.lastCommitDate = lastCommitDate
+    }
+
+    public func isReviewStale(for user: String) -> Bool {
+        guard let commitDate = lastCommitDate else { return false }
+        let myReviews = latestReviews.filter { $0.author == user }
+        guard let latestReview = myReviews.last, let reviewDate = latestReview.submittedAt else { return false }
+        return commitDate > reviewDate
     }
 
     public var jiraTicket: String? {
@@ -129,17 +141,13 @@ extension PullRequest: Hashable {
 public struct CategorisedPRs: Equatable, Sendable {
     public let needsMyReview: [PullRequest]
     public let myPRs: [PullRequest]
-    public let newActivity: [PullRequest]
-    public let drafts: [PullRequest]
 
-    public init(needsMyReview: [PullRequest], myPRs: [PullRequest], newActivity: [PullRequest], drafts: [PullRequest] = []) {
+    public init(needsMyReview: [PullRequest], myPRs: [PullRequest]) {
         self.needsMyReview = needsMyReview
         self.myPRs = myPRs
-        self.newActivity = newActivity
-        self.drafts = drafts
     }
 
-    public static let empty = CategorisedPRs(needsMyReview: [], myPRs: [], newActivity: [], drafts: [])
+    public static let empty = CategorisedPRs(needsMyReview: [], myPRs: [])
 }
 
 public enum PREvent: Equatable, Sendable {

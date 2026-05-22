@@ -20,9 +20,8 @@ enum PRStoreTests {
                     reviewRequestedLogins: ["bob"]
                 )
                 let result = store.categorise([pr])
-                try expect(result.needsMyReview.contains(pr), "expected PR in needsMyReview")
-                try expect(result.myPRs.isEmpty, "expected myPRs empty")
-                try expect(result.newActivity.isEmpty, "expected newActivity empty")
+                try expect(result.needsMyReview.count, 1)
+                try expect(result.needsMyReview[0].id, pr.id)
             }
 
             test("PR with review requested for team -> needsMyReview") {
@@ -33,7 +32,7 @@ enum PRStoreTests {
                     reviewRequestedTeams: ["myteam"]
                 )
                 let result = store.categorise([pr])
-                try expect(result.needsMyReview.contains(pr), "expected PR in needsMyReview")
+                try expect(result.needsMyReview.count, 1)
             }
 
             test("PR with team mentioned in body -> needsMyReview") {
@@ -44,10 +43,10 @@ enum PRStoreTests {
                     bodyMentionsTeam: true
                 )
                 let result = store.categorise([pr])
-                try expect(result.needsMyReview.contains(pr), "expected PR in needsMyReview")
+                try expect(result.needsMyReview.count, 1)
             }
 
-            test("PR already reviewed by current user -> excluded from needsMyReview") {
+            test("PR excluded after approval") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(
@@ -56,33 +55,34 @@ enum PRStoreTests {
                     latestReviews: [Review(author: "bob", verdict: .approved)]
                 )
                 let result = store.categorise([pr])
-                try expect(!result.needsMyReview.contains(pr), "expected PR excluded from needsMyReview")
+                try expect(result.needsMyReview.count, 0)
             }
 
-            test("Deduplication: review requested and body mention -> appears once in needsMyReview") {
+            test("PR with only a comment review still shows in needsMyReview") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(
                     author: "alice",
                     reviewRequestedLogins: ["bob"],
-                    bodyMentionsTeam: true
+                    latestReviews: [Review(author: "bob", verdict: .commented)]
                 )
                 let result = store.categorise([pr])
-                try expect(result.needsMyReview.filter { $0 == pr }.count, 1)
+                try expect(result.needsMyReview.count, 1)
             }
-        }
 
-        suite("PRStore myPRs") {
-            test("PR authored by current user -> myPRs") {
+            test("Draft PR excluded from needsMyReview") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(author: "bob")
+                let pr = ModelsTests.makePR(
+                    author: "alice",
+                    reviewRequestedLogins: ["bob"],
+                    isDraft: true
+                )
                 let result = store.categorise([pr])
-                try expect(result.myPRs.contains(pr), "expected PR in myPRs")
-                try expect(!result.needsMyReview.contains(pr), "expected PR not in needsMyReview")
+                try expect(result.needsMyReview.count, 0)
             }
 
-            test("myPRs takes priority over needsMyReview for own PRs") {
+            test("Own PR goes to myPRs not needsMyReview") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(
@@ -103,10 +103,9 @@ enum PRStoreTests {
                 let pr = ModelsTests.makePR(author: "alice")
                 let result = store.categorise([pr], teamMembers: ["alice", "bob", "carol"])
                 try expect(result.needsMyReview.count, 1)
-                try expect(result.needsMyReview[0].id, pr.id)
             }
 
-            test("PR authored by team member excluded if already reviewed") {
+            test("PR authored by team member excluded if approved") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(
@@ -126,49 +125,63 @@ enum PRStoreTests {
             }
         }
 
-        suite("PRStore newActivity") {
-            test("Participating PR with new comments -> newActivity") {
+        suite("PRStore stale reviews") {
+            test("stale review puts PR back in needsMyReview") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
-                // Seed initial state with 2 comments
-                let prFirst = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 2)
-                _ = store.categorise([prFirst])
-                // Now update with more comments
-                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 5)
-                let result = store.categorise([prUpdated])
-                try expect(result.newActivity.contains(prUpdated), "expected PR in newActivity")
-            }
-
-            test("Participating PR with no new comments -> excluded") {
-                let prefs = freshPreferences()
-                let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 3)
-                _ = store.categorise([pr])
-                // Same comment count
-                let prSame = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 3)
-                let result = store.categorise([prSame])
-                try expect(!result.newActivity.contains(prSame), "expected PR not in newActivity")
-            }
-
-            test("First-seen PR gets baseline seeded, not shown as newActivity") {
-                let prefs = freshPreferences()
-                let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(author: "alice", commentCount: 10)
+                let reviewDate = Date(timeIntervalSince1970: 1_700_000_000)
+                let commitDate = Date(timeIntervalSince1970: 1_700_001_000)
+                let pr = ModelsTests.makePR(
+                    author: "alice",
+                    reviewRequestedLogins: ["bob"],
+                    latestReviews: [Review(author: "bob", verdict: .approved, submittedAt: reviewDate)],
+                    lastCommitDate: commitDate
+                )
                 let result = store.categorise([pr])
-                try expect(!result.newActivity.contains(pr), "first-seen PR should not appear in newActivity")
+                try expect(result.needsMyReview.count, 1)
             }
 
-            test("needsMyReview PR not duplicated in newActivity") {
+            test("non-stale review keeps PR excluded") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
-                // Seed first
-                let prFirst = ModelsTests.makePR(id: "PR_1", author: "alice", reviewRequestedLogins: ["bob"], commentCount: 1)
-                _ = store.categorise([prFirst])
-                // New comments, but still in needsMyReview
-                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "alice", reviewRequestedLogins: ["bob"], commentCount: 5)
-                let result = store.categorise([prUpdated])
-                try expect(result.needsMyReview.contains(prUpdated), "expected PR in needsMyReview")
-                try expect(!result.newActivity.contains(prUpdated), "expected PR not duplicated in newActivity")
+                let commitDate = Date(timeIntervalSince1970: 1_700_000_000)
+                let reviewDate = Date(timeIntervalSince1970: 1_700_001_000)
+                let pr = ModelsTests.makePR(
+                    author: "alice",
+                    reviewRequestedLogins: ["bob"],
+                    latestReviews: [Review(author: "bob", verdict: .approved, submittedAt: reviewDate)],
+                    lastCommitDate: commitDate
+                )
+                let result = store.categorise([pr])
+                try expect(result.needsMyReview.count, 0)
+            }
+        }
+
+        suite("PRStore newCommentCount") {
+            test("new comments detected after baseline seeded") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 2)
+                _ = store.categorise([pr])
+                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
+                _ = store.categorise([prUpdated])
+                try expect(store.newCommentCount(for: prUpdated), 3)
+            }
+
+            test("no new comments when count unchanged") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
+                _ = store.categorise([pr])
+                try expect(store.newCommentCount(for: pr), 0)
+            }
+
+            test("first-seen PR has zero new comments") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "bob", commentCount: 10)
+                _ = store.categorise([pr])
+                try expect(store.newCommentCount(for: pr), 0)
             }
         }
 
@@ -191,34 +204,14 @@ enum PRStoreTests {
                 try expect(store.badgeCount >= 2, "expected badge count to include needsMyReview")
             }
 
-            test("badgeCount includes newActivity count") {
+            test("badgeCount includes myPRs with new comments") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 2)
+                let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 2)
                 _ = store.categorise([pr])
-                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 5)
+                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
                 _ = store.categorise([prUpdated])
-                try expect(store.badgeCount >= 1, "expected badge count to include newActivity")
-            }
-        }
-
-        suite("PRStore newCommentCounts") {
-            test("newCommentCounts reports delta for activity PRs") {
-                let prefs = freshPreferences()
-                let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 2)
-                _ = store.categorise([pr])
-                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 5)
-                _ = store.categorise([prUpdated])
-                try expect(store.newCommentCounts["PR_1"], 3)
-            }
-
-            test("newCommentCounts is empty when no new activity") {
-                let prefs = freshPreferences()
-                let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 2)
-                _ = store.categorise([pr])
-                try expect(store.newCommentCounts.isEmpty, "expected no new comment counts")
+                try expect(store.badgeCount >= 1, "expected badge count to include myPRs with new comments")
             }
         }
 
@@ -243,15 +236,16 @@ enum PRStoreTests {
                 try expect(prefs.lastSeenCommentCount(forPR: "PR_42"), 7)
             }
 
-            test("markSeen updates lastSeenVerdict in preferences") {
+            test("markSeen clears new comment count") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(
-                    id: "PR_42",
-                    latestReviews: [Review(author: "carol", verdict: .approved)]
-                )
-                store.markSeen(pr)
-                try expect(prefs.lastSeenVerdict(forPR: "PR_42"), .approved)
+                let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 2)
+                _ = store.categorise([pr])
+                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
+                _ = store.categorise([prUpdated])
+                try expect(store.newCommentCount(for: prUpdated), 3)
+                store.markSeen(prUpdated)
+                try expect(store.newCommentCount(for: prUpdated), 0)
             }
         }
     }
@@ -318,23 +312,11 @@ enum PRStoreTests {
             }
         }
 
-        suite("PRStore detectChanges - new comments") {
-            test("new comments detected") {
-                let prefs = freshPreferences()
-                let store = PRStore(preferences: prefs, currentUser: "bob")
-                let prBefore = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 3)
-                let prAfter = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 5)
-                _ = store.categorise([prBefore])
-                _ = store.categorise([prAfter])
-                let events = store.detectChanges()
-                try expect(events.count, 1)
-                try expect(events[0] == .newComments(pr: prAfter, count: 2), "expected newComments event with delta 2")
-            }
-
+        suite("PRStore detectChanges - no false positives") {
             test("no events when nothing changed") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
-                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", commentCount: 3)
+                let pr = ModelsTests.makePR(id: "PR_1", author: "alice", reviewRequestedLogins: ["bob"], commentCount: 3)
                 _ = store.categorise([pr])
                 _ = store.categorise([pr])
                 let events = store.detectChanges()

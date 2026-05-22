@@ -76,12 +76,14 @@ public final class GitHubClient: @unchecked Sendable {
             nodes {
               author { login }
               state
+              submittedAt
             }
           }
           comments { totalCount }
           commits(last: 1) {
             nodes {
               commit {
+                committedDate
                 statusCheckRollup {
                   state
                 }
@@ -170,7 +172,8 @@ public final class GitHubClient: @unchecked Sendable {
                             latestReviews: existing.latestReviews,
                             commentCount: existing.commentCount,
                             isDraft: existing.isDraft,
-                            ciStatus: existing.ciStatus
+                            ciStatus: existing.ciStatus,
+                            lastCommitDate: existing.lastCommitDate
                         )
                     }
                 } else {
@@ -222,7 +225,8 @@ public final class GitHubClient: @unchecked Sendable {
                 if let reviewAuthor = (reviewNode["author"] as? [String: Any])?["login"] as? String,
                    let stateString = reviewNode["state"] as? String,
                    let verdict = ReviewVerdict(rawValue: stateString) {
-                    reviews.append(Review(author: reviewAuthor, verdict: verdict))
+                    let submittedAt = (reviewNode["submittedAt"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }
+                    reviews.append(Review(author: reviewAuthor, verdict: verdict, submittedAt: submittedAt))
                 }
             }
         }
@@ -231,13 +235,18 @@ public final class GitHubClient: @unchecked Sendable {
         let isDraft = node["isDraft"] as? Bool ?? false
 
         var ciStatus: CIStatus = .unknown
+        var lastCommitDate: Date?
         if let commits = node["commits"] as? [String: Any],
            let commitNodes = commits["nodes"] as? [[String: Any]],
            let lastCommit = commitNodes.last,
-           let commit = lastCommit["commit"] as? [String: Any],
-           let rollup = commit["statusCheckRollup"] as? [String: Any],
-           let state = rollup["state"] as? String {
-            ciStatus = CIStatus(rawValue: state) ?? .unknown
+           let commit = lastCommit["commit"] as? [String: Any] {
+            if let rollup = commit["statusCheckRollup"] as? [String: Any],
+               let state = rollup["state"] as? String {
+                ciStatus = CIStatus(rawValue: state) ?? .unknown
+            }
+            if let dateString = commit["committedDate"] as? String {
+                lastCommitDate = ISO8601DateFormatter().date(from: dateString)
+            }
         }
 
         return PullRequest(
@@ -254,7 +263,8 @@ public final class GitHubClient: @unchecked Sendable {
             latestReviews: reviews,
             commentCount: commentCount,
             isDraft: isDraft,
-            ciStatus: ciStatus
+            ciStatus: ciStatus,
+            lastCommitDate: lastCommitDate
         )
     }
 

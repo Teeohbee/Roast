@@ -7,8 +7,8 @@ public final class StatusBarController: NSObject {
     private var categorised: CategorisedPRs = .empty
     private var badgeCount: Int = 0
     private var errorState: Bool = false
+    private var prStore: PRStore?
 
-    private var newCommentCounts: [String: Int] = [:]
     private var statusText: String = "Not configured"
 
     public var onRefresh: (() -> Void)?
@@ -25,10 +25,10 @@ public final class StatusBarController: NSObject {
         rebuildMenu()
     }
 
-    public func update(categorised: CategorisedPRs, badgeCount: Int, newCommentCounts: [String: Int] = [:]) {
+    public func update(categorised: CategorisedPRs, badgeCount: Int, prStore: PRStore) {
         self.categorised = categorised
         self.badgeCount = badgeCount
-        self.newCommentCounts = newCommentCounts
+        self.prStore = prStore
         self.errorState = false
         let formatter = DateFormatter()
         formatter.timeStyle = .short
@@ -96,9 +96,8 @@ public final class StatusBarController: NSObject {
 
         addSection(to: menu, title: "Needs My Review", prs: categorised.needsMyReview, subtitle: reviewSubtitle)
         addSection(to: menu, title: "My PRs", prs: categorised.myPRs, subtitle: myPRSubtitle)
-        addSection(to: menu, title: "New Activity", prs: categorised.newActivity, subtitle: activitySubtitle)
 
-        if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && categorised.newActivity.isEmpty && !errorState {
+        if categorised.needsMyReview.isEmpty && categorised.myPRs.isEmpty && !errorState {
             let emptyItem = NSMenuItem(title: "No PRs need your attention", action: nil, keyEquivalent: "")
             emptyItem.isEnabled = false
             menu.addItem(emptyItem)
@@ -206,9 +205,23 @@ public final class StatusBarController: NSObject {
         return NSAttributedString(string: text, attributes: attrs)
     }
 
+    private func newCommentsString(_ pr: PullRequest) -> NSAttributedString? {
+        guard let store = prStore else { return nil }
+        let count = store.newCommentCount(for: pr)
+        guard count > 0 else { return nil }
+        let result = NSMutableAttributedString()
+        result.append(sep())
+        result.append(coloured("\(count) new comment\(count == 1 ? "" : "s")", .systemBlue))
+        return result
+    }
+
     private func reviewSubtitle(_ pr: PullRequest) -> NSAttributedString {
         let result = NSMutableAttributedString()
         if pr.isDraft { result.append(coloured("Draft", .systemOrange)); result.append(sep()) }
+        if let store = prStore, store.isStaleReview(pr) {
+            result.append(sub("\u{21bb} Review stale"))
+            result.append(sep())
+        }
         result.append(sub(pr.repoName))
         result.append(sub(" "))
         result.append(ciDotString(pr.ciStatus))
@@ -218,6 +231,7 @@ public final class StatusBarController: NSObject {
         result.append(sub(pr.author))
         result.append(sep())
         result.append(sub(pr.relativeAge))
+        if let comments = newCommentsString(pr) { result.append(comments) }
         return result
     }
 
@@ -238,23 +252,7 @@ public final class StatusBarController: NSObject {
         }
         result.append(sep())
         result.append(sub(pr.relativeAge))
-        return result
-    }
-
-    private func activitySubtitle(_ pr: PullRequest) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        result.append(sub(pr.repoName))
-        result.append(sub(" "))
-        result.append(ciDotString(pr.ciStatus))
-        result.append(sep())
-        result.append(sub("#\(pr.number)"))
-        let count = newCommentCounts[pr.id] ?? 0
-        if count > 0 {
-            result.append(sep())
-            result.append(coloured("\(count) new comment\(count == 1 ? "" : "s")", .systemBlue))
-        }
-        result.append(sep())
-        result.append(sub(pr.relativeAge))
+        if let comments = newCommentsString(pr) { result.append(comments) }
         return result
     }
 

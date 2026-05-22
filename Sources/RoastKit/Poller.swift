@@ -63,7 +63,7 @@ public final class Poller {
                 let categorised = store.categorise(prs, teamMembers: cachedMembers)
                 let events = store.detectChanges()
 
-                statusBar.update(categorised: categorised, badgeCount: store.badgeCount, newCommentCounts: store.newCommentCounts)
+                statusBar.update(categorised: categorised, badgeCount: store.badgeCount, prStore: store)
                 notifications.deliver(events)
             } catch let error as GitHubError {
                 switch error {

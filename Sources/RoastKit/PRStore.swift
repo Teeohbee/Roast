@@ -7,8 +7,6 @@ public final class PRStore {
     public private(set) var categorised: CategorisedPRs = .empty
     public private(set) var previousCategorised: CategorisedPRs = .empty
 
-    // Track last-seen comment counts in memory so first-seen PRs get baseline seeded
-    // without persisting until explicitly marked seen
     private var seenCommentCounts: [String: Int] = [:]
 
     public init(preferences: PreferencesStore, currentUser: String) {
@@ -23,36 +21,29 @@ public final class PRStore {
 
         var myPRs: [PullRequest] = []
         var needsMyReview: [PullRequest] = []
-        var newActivity: [PullRequest] = []
 
         for pr in prs {
+            seedBaselineIfNeeded(pr)
+
             if pr.author == currentUser {
                 myPRs.append(pr)
-                seedBaselineIfNeeded(pr)
                 continue
             }
+
+            if pr.isDraft { continue }
 
             let verdict = pr.latestVerdictByUser[currentUser]
             let hasReviewed = verdict == .approved || verdict == .changesRequested
             let needsReview = isReviewRequestedForMe(pr) || teamMemberSet.contains(pr.author)
 
-            if needsReview && !hasReviewed && !pr.isDraft {
+            if needsReview && (!hasReviewed || pr.isReviewStale(for: currentUser)) {
                 needsMyReview.append(pr)
-                seedBaselineIfNeeded(pr)
-                continue
-            }
-
-            seedBaselineIfNeeded(pr)
-            let lastSeen = seenCommentCounts[pr.id] ?? preferences.lastSeenCommentCount(forPR: pr.id)
-            if let baseline = lastSeen, pr.commentCount > baseline {
-                newActivity.append(pr)
             }
         }
 
         categorised = CategorisedPRs(
             needsMyReview: needsMyReview,
-            myPRs: myPRs,
-            newActivity: newActivity
+            myPRs: myPRs
         )
         return categorised
     }
@@ -64,23 +55,27 @@ public final class PRStore {
     }
 
     public var badgeCount: Int {
-        let changedVerdictCount = categorised.myPRs.filter { pr in
-            let previous = preferences.lastSeenVerdict(forPR: pr.id)
-            return previous != nil && previous != pr.overallVerdict
-        }.count
-        return categorised.needsMyReview.count + changedVerdictCount + categorised.newActivity.count
+        let myPRsWithNewComments = categorised.myPRs.filter { newCommentCount(for: $0) > 0 }.count
+        return categorised.needsMyReview.count + myPRsWithNewComments
+    }
+
+    public func newCommentCount(for pr: PullRequest) -> Int {
+        let baseline = seenCommentCounts[pr.id] ?? preferences.lastSeenCommentCount(forPR: pr.id) ?? pr.commentCount
+        return max(pr.commentCount - baseline, 0)
+    }
+
+    public func isStaleReview(_ pr: PullRequest) -> Bool {
+        pr.isReviewStale(for: currentUser)
     }
 
     public func detectChanges() -> [PREvent] {
         var events: [PREvent] = []
 
-        // 1. New review requests: PRs in current needsMyReview that weren't in previous
         let previousReviewIDs = Set(previousCategorised.needsMyReview.map(\.id))
         for pr in categorised.needsMyReview where !previousReviewIDs.contains(pr.id) {
             events.append(.reviewRequested(pr: pr))
         }
 
-        // 2. New verdicts on my PRs: compare overallVerdict between previous and current
         let previousMyPRsByID = Dictionary(uniqueKeysWithValues: previousCategorised.myPRs.map { ($0.id, $0) })
         for pr in categorised.myPRs {
             let previousVerdict = previousMyPRsByID[pr.id]?.overallVerdict ?? .pending
@@ -89,7 +84,6 @@ public final class PRStore {
 
             switch currentVerdict {
             case .approved:
-                // Find the reviewer who is newly approving
                 let previousVerdicts = previousMyPRsByID[pr.id]?.latestVerdictByUser ?? [:]
                 if let reviewer = pr.latestVerdictByUser.first(where: { user, verdict in
                     verdict == .approved && previousVerdicts[user] != .approved
@@ -108,29 +102,7 @@ public final class PRStore {
             }
         }
 
-        // 3. New comments: PRs in current newActivity that weren't in previous newActivity
-        let previousActivityByID = Dictionary(uniqueKeysWithValues: previousCategorised.newActivity.map { ($0.id, $0) })
-        for pr in categorised.newActivity {
-            let previousCount = previousActivityByID[pr.id]?.commentCount ?? (seenCommentCounts[pr.id] ?? 0)
-            let delta = pr.commentCount - previousCount
-            if delta > 0 {
-                events.append(.newComments(pr: pr, count: delta))
-            }
-        }
-
         return events
-    }
-
-    public var newCommentCounts: [String: Int] {
-        var result: [String: Int] = [:]
-        for pr in categorised.newActivity {
-            let baseline = seenCommentCounts[pr.id] ?? preferences.lastSeenCommentCount(forPR: pr.id) ?? 0
-            let delta = pr.commentCount - baseline
-            if delta > 0 {
-                result[pr.id] = delta
-            }
-        }
-        return result
     }
 
     // MARK: - Private

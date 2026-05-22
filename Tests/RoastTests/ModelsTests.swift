@@ -14,7 +14,9 @@ enum ModelsTests {
         reviewRequestedTeams: [String] = [],
         bodyMentionsTeam: Bool = false,
         latestReviews: [Review] = [],
-        commentCount: Int = 0
+        commentCount: Int = 0,
+        isDraft: Bool = false,
+        lastCommitDate: Date? = nil
     ) -> PullRequest {
         PullRequest(
             id: id,
@@ -28,7 +30,9 @@ enum ModelsTests {
             reviewRequestedTeams: reviewRequestedTeams,
             bodyMentionsTeam: bodyMentionsTeam,
             latestReviews: latestReviews,
-            commentCount: commentCount
+            commentCount: commentCount,
+            isDraft: isDraft,
+            lastCommitDate: lastCommitDate
         )
     }
 

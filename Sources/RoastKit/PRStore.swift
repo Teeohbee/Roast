@@ -32,7 +32,8 @@ public final class PRStore {
                 continue
             }
 
-            let hasReviewed = pr.latestVerdictByUser[currentUser] != nil
+            let verdict = pr.latestVerdictByUser[currentUser]
+            let hasReviewed = verdict == .approved || verdict == .changesRequested
             let needsReview = isReviewRequestedForMe(pr) || teamMemberSet.contains(pr.author)
 
             if needsReview && !hasReviewed && !pr.isDraft {

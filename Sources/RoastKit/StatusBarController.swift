@@ -218,10 +218,6 @@ public final class StatusBarController: NSObject {
     private func reviewSubtitle(_ pr: PullRequest) -> NSAttributedString {
         let result = NSMutableAttributedString()
         if pr.isDraft { result.append(coloured("Draft", .systemOrange)); result.append(sep()) }
-        if let store = prStore, store.isStaleReview(pr) {
-            result.append(sub("\u{21bb} Review stale"))
-            result.append(sep())
-        }
         result.append(sub(pr.repoName))
         result.append(sub(" "))
         result.append(ciDotString(pr.ciStatus))
@@ -232,6 +228,10 @@ public final class StatusBarController: NSObject {
         result.append(sep())
         result.append(sub(pr.relativeAge))
         if let comments = newCommentsString(pr) { result.append(comments) }
+        if let store = prStore, store.isStaleReview(pr) {
+            result.append(sep())
+            result.append(sub("\u{21bb} Review stale"))
+        }
         return result
     }
 

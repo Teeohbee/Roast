@@ -1,5 +1,7 @@
 # Roast
 
+*Had your PR Roasted yet?*
+
 A native macOS menubar app that shows GitHub PRs requiring your attention, scoped to your team.
 
 ## Features

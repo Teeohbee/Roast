@@ -8,7 +8,13 @@ enum NotificationManagerTests {
                 let pr = ModelsTests.makePR(title: "Add widget", author: "alice", repoName: "chopin")
                 let n = NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .staleReview))
                 try expect(n.title, "New commits since your review")
-                try expect(n.body, "alice updated \"Add widget\" (chopin)")
+                try expect(n.subtitle, "chopin")
+                try expect(n.body, "alice updated \"Add widget\"")
+            }
+
+            test("notifications are grouped by repo") {
+                let pr = ModelsTests.makePR(repoName: "chopin")
+                try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).threadID, "chopin")
             }
 
             test("team member PR names the author") {
@@ -19,7 +25,7 @@ enum NotificationManagerTests {
             test("extra comments are appended") {
                 let pr = ModelsTests.makePR(title: "Add widget", repoName: "chopin")
                 let n = NotificationManager.notification(for: .changesRequested(pr: pr, reviewer: "carol"), extraComments: 4)
-                try expect(n.body, "carol requested changes on \"Add widget\" (chopin) (+4 comments)")
+                try expect(n.body, "carol requested changes on \"Add widget\" (+4 comments)")
             }
         }
 

@@ -5,7 +5,9 @@ public struct PRNotification: Equatable, Sendable {
     public let prID: String
     public let url: URL
     public let title: String
+    public let subtitle: String
     public let body: String
+    public let threadID: String
 }
 
 @MainActor
@@ -34,17 +36,21 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         guard !notifications.isEmpty else { return }
 
         if notifications.count >= Self.collapseThreshold {
-            post(id: "summary", title: "Roast", body: "\(notifications.count) PRs need your attention", userInfo: [:])
+            let content = UNMutableNotificationContent()
+            content.title = "Roast"
+            content.body = "\(notifications.count) PRs need your attention"
+            post(id: "summary", content: content)
             return
         }
 
         for notification in notifications {
-            post(
-                id: notification.prID,
-                title: notification.title,
-                body: notification.body,
-                userInfo: ["prID": notification.prID, "url": notification.url.absoluteString]
-            )
+            let content = UNMutableNotificationContent()
+            content.title = notification.title
+            content.subtitle = notification.subtitle
+            content.body = notification.body
+            content.threadIdentifier = notification.threadID
+            content.userInfo = ["prID": notification.prID, "url": notification.url.absoluteString]
+            post(id: notification.prID, content: content)
         }
     }
 
@@ -83,38 +89,36 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
             switch reason {
             case .requested:
                 title = "Review requested"
-                body = "\(pr.author) wants your review on \"\(pr.title)\" (\(pr.repoName))"
+                body = "\(pr.author) wants your review on \"\(pr.title)\""
             case .teamMemberPR:
                 title = "New PR from \(pr.author)"
-                body = "\"\(pr.title)\" (\(pr.repoName))"
+                body = "\"\(pr.title)\""
             case .staleReview:
                 title = "New commits since your review"
-                body = "\(pr.author) updated \"\(pr.title)\" (\(pr.repoName))"
+                body = "\(pr.author) updated \"\(pr.title)\""
             }
         case .approved(let approved, let reviewer):
             pr = approved
             title = "PR approved"
-            body = "\(reviewer) approved \"\(pr.title)\" (\(pr.repoName))"
+            body = "\(reviewer) approved \"\(pr.title)\""
         case .changesRequested(let changed, let reviewer):
             pr = changed
             title = "Changes requested"
-            body = "\(reviewer) requested changes on \"\(pr.title)\" (\(pr.repoName))"
+            body = "\(reviewer) requested changes on \"\(pr.title)\""
         case .newComments(let commented, let count):
             pr = commented
             title = "New comments"
-            body = "\(count) new comment\(count == 1 ? "" : "s") on \"\(pr.title)\" (\(pr.repoName))"
+            body = "\(count) new comment\(count == 1 ? "" : "s") on \"\(pr.title)\""
         }
 
         let suffix = extraComments > 0 ? " (+\(extraComments) comment\(extraComments == 1 ? "" : "s"))" : ""
-        return PRNotification(prID: pr.id, url: pr.url, title: title, body: body + suffix)
+        return PRNotification(
+            prID: pr.id, url: pr.url, title: title, subtitle: pr.repoName, body: body + suffix, threadID: pr.repoName
+        )
     }
 
-    private func post(id: String, title: String, body: String, userInfo: [String: String]) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
+    private func post(id: String, content: UNMutableNotificationContent) {
         content.sound = .default
-        content.userInfo = userInfo
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 

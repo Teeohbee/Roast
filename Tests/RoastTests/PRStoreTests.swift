@@ -360,6 +360,44 @@ enum PRStoreTests {
             }
         }
 
+        suite("PRStore detectChanges - new comments on my PRs") {
+            test("more comments since last poll emits the difference") {
+                let store = PRStore(preferences: freshPreferences(), currentUser: "bob")
+                let before = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 2)
+                let after = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
+                _ = store.categorise([before])
+                _ = store.categorise([after])
+                try expect(store.detectChanges() == [.newComments(pr: after, count: 3)], "expected newComments with count 3")
+            }
+
+            test("unseen but unchanged comments do not re-notify") {
+                let store = PRStore(preferences: freshPreferences(), currentUser: "bob")
+                let before = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 2)
+                let after = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
+                _ = store.categorise([before])
+                _ = store.categorise([after])
+                _ = store.categorise([after])
+                try expect(store.detectChanges().isEmpty, "expected no events when count unchanged since last poll")
+            }
+
+            test("PR appearing for the first time does not emit") {
+                let store = PRStore(preferences: freshPreferences(), currentUser: "bob")
+                let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
+                _ = store.categorise([])
+                _ = store.categorise([pr])
+                try expect(store.detectChanges().isEmpty, "expected no events for a PR new this poll")
+            }
+
+            test("my own new comments do not emit") {
+                let store = PRStore(preferences: freshPreferences(), currentUser: "bob")
+                let before = ModelsTests.makePR(id: "PR_1", author: "bob", commentCountsByAuthor: ["carol": 1])
+                let after = ModelsTests.makePR(id: "PR_1", author: "bob", commentCountsByAuthor: ["carol": 1, "bob": 3])
+                _ = store.categorise([before])
+                _ = store.categorise([after])
+                try expect(store.detectChanges().isEmpty, "expected my own comments to be ignored")
+            }
+        }
+
         suite("PRStore detectChanges - no false positives") {
             test("no events when nothing changed") {
                 let prefs = freshPreferences()

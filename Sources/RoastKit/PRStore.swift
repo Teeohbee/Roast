@@ -88,6 +88,13 @@ public final class PRStore {
 
         let previousMyPRsByID = Dictionary(uniqueKeysWithValues: previousCategorised.myPRs.map { ($0.id, $0) })
         for pr in categorised.myPRs {
+            if let previous = previousMyPRsByID[pr.id] {
+                let added = pr.commentCount(excluding: currentUser) - previous.commentCount(excluding: currentUser)
+                if added > 0 {
+                    events.append(.newComments(pr: pr, count: added))
+                }
+            }
+
             let previousVerdict = previousMyPRsByID[pr.id]?.overallVerdict ?? .pending
             let currentVerdict = pr.overallVerdict
             guard currentVerdict != previousVerdict else { continue }

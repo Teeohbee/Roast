@@ -18,28 +18,35 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 
 ## Install
 
-Requires macOS 14+ and Xcode Command Line Tools.
+Roast is built from source; there's no downloadable app. Requires macOS 14+ and Xcode Command Line Tools (`xcode-select --install`).
 
-```bash
-xcode-select --install   # if you haven't already
-git clone git@github.com:Teeohbee/Roast.git
-cd Roast
-./build.sh --install
-```
-
-This builds a release binary, signs the bundle and copies `Roast.app` to `/Applications`.
-
-### Signing certificate (one-time)
-
-`build.sh` signs with a self-signed certificate named `Roast Dev`, so macOS sees the same app across rebuilds and keeps its Keychain access. Create it in **Keychain Access → Certificate Assistant → Create a Certificate**:
+**1. Create a signing certificate (one-time).** In **Keychain Access → Certificate Assistant → Create a Certificate**:
 
 - Name: `Roast Dev`
 - Identity Type: Self-Signed Root
 - Certificate Type: Code Signing
 
-It doesn't need to be trusted. Without it, `build.sh` falls back to ad-hoc signing with a warning, and permissions reset on every rebuild. Use a different certificate with `SIGN_IDENTITY="My Cert" ./build.sh`.
+This lets macOS recognise Roast as the same app after every rebuild, so it keeps its Keychain and notification permissions. It doesn't need to be trusted. If you skip it, `build.sh` warns and signs ad-hoc, and permissions reset on every rebuild. To use a different certificate: `SIGN_IDENTITY="My Cert" ./build.sh --install`.
 
-The first time Roast reads the GitHub token after a signing change, macOS asks for your keychain password. Click **Always Allow**.
+**2. Build and install.**
+
+```bash
+git clone git@github.com:Teeohbee/Roast.git
+cd Roast
+./build.sh --install
+```
+
+This builds a release binary, signs the bundle and copies it to `/Applications`. Always launch Roast from there, because macOS refuses notifications to apps run from anywhere else.
+
+**3. First launch.** Open Roast from `/Applications` and:
+
+- Click **Always Allow** when macOS asks for your keychain password (Roast stores its GitHub token there)
+- Click **Allow** on the notification prompt
+- Fill in Settings, which opens automatically (see [Setup](#setup))
+
+If no banners ever appear, check **System Settings → Notifications → Roast** and switch **Allow notifications** on. macOS sometimes records the first answer as off. Roast's Settings window shows "Turned off in System Settings" when this has happened.
+
+**Updating:** `git pull && ./build.sh --install`, then quit and reopen Roast. With the certificate in place, there are no new prompts.
 
 ## Setup
 
@@ -48,8 +55,7 @@ On first launch, Settings opens automatically. You need:
 1. **GitHub Token** - a [classic PAT](https://github.com/settings/tokens/new) with `read:org`, `repo`, `notifications` scopes
 2. **Team** - your GitHub team slug (e.g. `simplybusiness/high-rollers`)
 3. **Poll interval** - how often to check GitHub (default 2 minutes)
-
-Roast asks for notification permission on first launch. It must run from an Applications folder (`--install` does this); macOS refuses notifications to apps run from elsewhere. Turn banners off with **Show notifications** in Settings. If macOS has them turned off, Settings says so and links to System Settings.
+4. **Show notifications** - on by default; untick to stop banners
 
 ## How it works
 

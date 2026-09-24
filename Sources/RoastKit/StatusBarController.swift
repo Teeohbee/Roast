@@ -37,6 +37,12 @@ public final class StatusBarController: NSObject {
         rebuildMenu()
     }
 
+    public func refresh(badgeCount: Int) {
+        self.badgeCount = badgeCount
+        updateIcon()
+        rebuildMenu()
+    }
+
     public func showError(_ message: String = "Check token and team in Settings") {
         self.errorState = true
         self.statusText = message

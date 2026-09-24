@@ -100,6 +100,8 @@ public final class Poller {
     }
 
     public func markSeen(_ pr: PullRequest) {
-        prStore?.markSeen(pr)
+        guard let store = prStore else { return }
+        store.markSeen(pr)
+        statusBar.refresh(badgeCount: store.badgeCount)
     }
 }

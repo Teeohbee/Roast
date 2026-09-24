@@ -25,7 +25,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             statusBar: statusBarController,
             notifications: notifications
         )
-        preferencesWindow = PreferencesWindow(preferences: preferences)
+        preferencesWindow = PreferencesWindow(preferences: preferences, notifications: notifications)
 
         statusBarController.onRefresh = { [weak self] in
             self?.poller.poll()

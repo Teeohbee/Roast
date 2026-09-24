@@ -6,6 +6,7 @@ import ServiceManagement
 public final class PreferencesWindow: NSObject {
     private var window: NSWindow?
     private let preferences: PreferencesStore
+    private let notifications: NotificationManager
     public var onSaved: (() -> Void)?
 
     private var tokenField: NSSecureTextField!
@@ -13,21 +14,25 @@ public final class PreferencesWindow: NSObject {
     private var intervalStepper: NSStepper!
     private var intervalLabel: NSTextField!
     private var launchCheckbox: NSButton!
+    private var notificationsCheckbox: NSButton!
+    private var blockedRow: NSStackView!
 
-    public init(preferences: PreferencesStore) {
+    public init(preferences: PreferencesStore, notifications: NotificationManager) {
         self.preferences = preferences
+        self.notifications = notifications
         super.init()
     }
 
     public func show() {
         if let existing = window {
+            updateBlockedNote()
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 220),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -79,6 +84,20 @@ public final class PreferencesWindow: NSObject {
         launchCheckbox.state = SMAppService.mainApp.status == .enabled ? .on : .off
         stack.addArrangedSubview(launchCheckbox)
 
+        notificationsCheckbox = NSButton(checkboxWithTitle: "Show notifications", target: nil, action: nil)
+        notificationsCheckbox.state = preferences.notificationsEnabled ? .on : .off
+        stack.addArrangedSubview(notificationsCheckbox)
+
+        let blockedLabel = NSTextField(labelWithString: "Turned off in System Settings")
+        blockedLabel.textColor = .secondaryLabelColor
+        let openButton = NSButton(title: "Open", target: self, action: #selector(openNotificationSettings))
+        openButton.bezelStyle = .inline
+        blockedRow = NSStackView(views: [blockedLabel, openButton])
+        blockedRow.orientation = .horizontal
+        blockedRow.spacing = 8
+        blockedRow.isHidden = true
+        stack.addArrangedSubview(blockedRow)
+
         // Buttons
         let buttonRow = NSStackView()
         buttonRow.orientation = .horizontal
@@ -101,6 +120,7 @@ public final class PreferencesWindow: NSObject {
         ])
 
         self.window = w
+        updateBlockedNote()
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -120,6 +140,21 @@ public final class PreferencesWindow: NSObject {
         return row
     }
 
+    private func updateBlockedNote() {
+        guard preferences.notificationsEnabled else {
+            blockedRow.isHidden = true
+            return
+        }
+        Task {
+            blockedRow.isHidden = !(await notifications.isBlockedBySystem())
+        }
+    }
+
+    @objc private func openNotificationSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     @objc private func stepperChanged() {
         intervalLabel.stringValue = "\(intervalStepper.integerValue) min"
     }
@@ -132,6 +167,7 @@ public final class PreferencesWindow: NSObject {
 
         preferences.teamSlug = teamField.stringValue
         preferences.pollIntervalMinutes = intervalStepper.integerValue
+        preferences.notificationsEnabled = notificationsCheckbox.state == .on
 
         if launchCheckbox.state == .on {
             try? SMAppService.mainApp.register()

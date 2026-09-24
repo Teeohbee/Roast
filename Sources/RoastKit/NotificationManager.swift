@@ -24,6 +24,10 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    public func isBlockedBySystem() async -> Bool {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
+    }
+
     public func deliver(_ events: [PREvent]) {
         guard preferences.notificationsEnabled else { return }
         let notifications = Self.notifications(for: events)

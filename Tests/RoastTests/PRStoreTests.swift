@@ -247,6 +247,16 @@ enum PRStoreTests {
                 store.markSeen(prUpdated)
                 try expect(store.newCommentCount(for: prUpdated), 0)
             }
+
+            test("my own comments are not new comments") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCountsByAuthor: ["carol": 2])
+                _ = store.categorise([pr])
+                let prUpdated = ModelsTests.makePR(id: "PR_1", author: "bob", commentCountsByAuthor: ["carol": 3, "bob": 4])
+                _ = store.categorise([prUpdated])
+                try expect(store.newCommentCount(for: prUpdated), 1)
+            }
         }
     }
 

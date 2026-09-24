@@ -56,8 +56,9 @@ public final class PRStore {
     }
 
     public func markSeen(_ pr: PullRequest) {
-        preferences.setLastSeenCommentCount(pr.commentCount, forPR: pr.id)
-        seenCommentCounts[pr.id] = pr.commentCount
+        let count = pr.commentCount(excluding: currentUser)
+        preferences.setLastSeenCommentCount(count, forPR: pr.id)
+        seenCommentCounts[pr.id] = count
         preferences.setLastSeenVerdict(pr.overallVerdict, forPR: pr.id)
     }
 
@@ -67,8 +68,9 @@ public final class PRStore {
     }
 
     public func newCommentCount(for pr: PullRequest) -> Int {
-        let baseline = seenCommentCounts[pr.id] ?? preferences.lastSeenCommentCount(forPR: pr.id) ?? pr.commentCount
-        return max(pr.commentCount - baseline, 0)
+        let count = pr.commentCount(excluding: currentUser)
+        let baseline = seenCommentCounts[pr.id] ?? preferences.lastSeenCommentCount(forPR: pr.id) ?? count
+        return max(count - baseline, 0)
     }
 
     public func isStaleReview(_ pr: PullRequest) -> Bool {
@@ -126,6 +128,6 @@ public final class PRStore {
     private func seedBaselineIfNeeded(_ pr: PullRequest) {
         guard seenCommentCounts[pr.id] == nil,
               preferences.lastSeenCommentCount(forPR: pr.id) == nil else { return }
-        seenCommentCounts[pr.id] = pr.commentCount
+        seenCommentCounts[pr.id] = pr.commentCount(excluding: currentUser)
     }
 }

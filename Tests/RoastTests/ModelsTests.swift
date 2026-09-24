@@ -15,6 +15,7 @@ enum ModelsTests {
         bodyMentionsTeam: Bool = false,
         latestReviews: [Review] = [],
         commentCount: Int = 0,
+        commentCountsByAuthor: [String: Int]? = nil,
         isDraft: Bool = false,
         lastCommitDate: Date? = nil
     ) -> PullRequest {
@@ -30,7 +31,7 @@ enum ModelsTests {
             reviewRequestedTeams: reviewRequestedTeams,
             bodyMentionsTeam: bodyMentionsTeam,
             latestReviews: latestReviews,
-            commentCount: commentCount,
+            commentCountsByAuthor: commentCountsByAuthor ?? (commentCount > 0 ? ["carol": commentCount] : [:]),
             isDraft: isDraft,
             lastCommitDate: lastCommitDate
         )

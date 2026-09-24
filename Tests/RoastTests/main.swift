@@ -4,5 +4,6 @@ ModelsTests.run()
 PreferencesStoreTests.run()
 PRStoreTests.run()
 PRStoreTests.runDiffTests()
+GitHubClientTests.run()
 
 reportResults()

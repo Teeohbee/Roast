@@ -72,14 +72,15 @@ public final class GitHubClient: @unchecked Sendable {
               }
             }
           }
-          reviews(last: 20) {
+          reviews(last: 50) {
             nodes {
-              author { login }
+              author { login __typename }
               state
               submittedAt
+              comments { totalCount }
             }
           }
-          comments { totalCount }
+          comments(last: 100) { nodes { author { login __typename } } }
           commits(last: 1) {
             nodes {
               commit {
@@ -170,7 +171,7 @@ public final class GitHubClient: @unchecked Sendable {
                             reviewRequestedTeams: existing.reviewRequestedTeams,
                             bodyMentionsTeam: true,
                             latestReviews: existing.latestReviews,
-                            commentCount: existing.commentCount,
+                            commentCountsByAuthor: existing.commentCountsByAuthor,
                             isDraft: existing.isDraft,
                             ciStatus: existing.ciStatus,
                             lastCommitDate: existing.lastCommitDate
@@ -185,7 +186,7 @@ public final class GitHubClient: @unchecked Sendable {
         return Array(prsById.values)
     }
 
-    private func parsePRNode(_ node: [String: Any], bodyMentionsTeam: Bool) -> PullRequest? {
+    func parsePRNode(_ node: [String: Any], bodyMentionsTeam: Bool) -> PullRequest? {
         guard let id = node["id"] as? String,
               let number = node["number"] as? Int,
               let title = node["title"] as? String,
@@ -219,9 +220,14 @@ public final class GitHubClient: @unchecked Sendable {
         }
 
         var reviews: [Review] = []
+        var commentCountsByAuthor: [String: Int] = [:]
         if let reviewsDict = node["reviews"] as? [String: Any],
            let reviewNodes = reviewsDict["nodes"] as? [[String: Any]] {
             for reviewNode in reviewNodes {
+                if let reviewAuthor = humanLogin(reviewNode["author"]),
+                   let inlineCount = (reviewNode["comments"] as? [String: Any])?["totalCount"] as? Int {
+                    commentCountsByAuthor[reviewAuthor, default: 0] += inlineCount
+                }
                 if let reviewAuthor = (reviewNode["author"] as? [String: Any])?["login"] as? String,
                    let stateString = reviewNode["state"] as? String,
                    let verdict = ReviewVerdict(rawValue: stateString) {
@@ -231,7 +237,12 @@ public final class GitHubClient: @unchecked Sendable {
             }
         }
 
-        let commentCount = (node["comments"] as? [String: Any])?["totalCount"] as? Int ?? 0
+        let commentNodes = (node["comments"] as? [String: Any])?["nodes"] as? [[String: Any]] ?? []
+        for commentNode in commentNodes {
+            if let commentAuthor = humanLogin(commentNode["author"]) {
+                commentCountsByAuthor[commentAuthor, default: 0] += 1
+            }
+        }
         let isDraft = node["isDraft"] as? Bool ?? false
 
         var ciStatus: CIStatus = .unknown
@@ -261,11 +272,16 @@ public final class GitHubClient: @unchecked Sendable {
             reviewRequestedTeams: reviewRequestedTeams,
             bodyMentionsTeam: bodyMentionsTeam,
             latestReviews: reviews,
-            commentCount: commentCount,
+            commentCountsByAuthor: commentCountsByAuthor,
             isDraft: isDraft,
             ciStatus: ciStatus,
             lastCommitDate: lastCommitDate
         )
+    }
+
+    private func humanLogin(_ author: Any?) -> String? {
+        guard let author = author as? [String: Any], author["__typename"] as? String != "Bot" else { return nil }
+        return author["login"] as? String
     }
 
     // MARK: - HTTP

@@ -6,7 +6,7 @@ public final class PreferencesStore {
     private enum Key {
         static let teamSlug = "roast.teamSlug"
         static let pollIntervalMinutes = "roast.pollIntervalMinutes"
-        static let lastSeenCommentCounts = "roast.lastSeenCommentCounts"
+        static let lastSeenCommentCounts = "roast.lastSeenOthersCommentCounts"
         static let lastSeenVerdicts = "roast.lastSeenVerdicts"
     }
 

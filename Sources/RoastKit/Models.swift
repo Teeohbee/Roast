@@ -40,7 +40,7 @@ public struct PullRequest: Sendable {
     public let reviewRequestedTeams: [String]
     public let bodyMentionsTeam: Bool
     public let latestReviews: [Review]
-    public let commentCount: Int
+    public let commentCountsByAuthor: [String: Int]
     public let isDraft: Bool
     public let ciStatus: CIStatus
     public let lastCommitDate: Date?
@@ -57,7 +57,7 @@ public struct PullRequest: Sendable {
         reviewRequestedTeams: [String],
         bodyMentionsTeam: Bool,
         latestReviews: [Review],
-        commentCount: Int,
+        commentCountsByAuthor: [String: Int],
         isDraft: Bool = false,
         ciStatus: CIStatus = .unknown,
         lastCommitDate: Date? = nil
@@ -73,10 +73,14 @@ public struct PullRequest: Sendable {
         self.reviewRequestedTeams = reviewRequestedTeams
         self.bodyMentionsTeam = bodyMentionsTeam
         self.latestReviews = latestReviews
-        self.commentCount = commentCount
+        self.commentCountsByAuthor = commentCountsByAuthor
         self.isDraft = isDraft
         self.ciStatus = ciStatus
         self.lastCommitDate = lastCommitDate
+    }
+
+    public func commentCount(excluding user: String) -> Int {
+        commentCountsByAuthor.filter { $0.key != user }.values.reduce(0, +)
     }
 
     public func isReviewStale(for user: String) -> Bool {

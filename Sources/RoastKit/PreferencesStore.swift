@@ -6,6 +6,7 @@ public final class PreferencesStore {
     private enum Key {
         static let teamSlug = "roast.teamSlug"
         static let pollIntervalMinutes = "roast.pollIntervalMinutes"
+        static let notificationsEnabled = "roast.notificationsEnabled"
         static let lastSeenCommentCounts = "roast.lastSeenOthersCommentCounts"
         static let lastSeenVerdicts = "roast.lastSeenVerdicts"
     }
@@ -25,6 +26,11 @@ public final class PreferencesStore {
             return stored == 0 ? 2 : stored
         }
         set { defaults.set(newValue, forKey: Key.pollIntervalMinutes) }
+    }
+
+    public var notificationsEnabled: Bool {
+        get { defaults.object(forKey: Key.notificationsEnabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.notificationsEnabled) }
     }
 
     public var org: String {

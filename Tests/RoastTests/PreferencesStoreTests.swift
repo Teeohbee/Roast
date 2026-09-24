@@ -18,6 +18,11 @@ enum PreferencesStoreTests {
                 let store = PreferencesStore(defaults: freshDefaults())
                 try expect(store.pollIntervalMinutes, 2)
             }
+
+            test("notifications enabled by default") {
+                let store = PreferencesStore(defaults: freshDefaults())
+                try expect(store.notificationsEnabled, true)
+            }
         }
 
         suite("PreferencesStore set and get") {
@@ -31,6 +36,12 @@ enum PreferencesStoreTests {
                 let store = PreferencesStore(defaults: freshDefaults())
                 store.pollIntervalMinutes = 5
                 try expect(store.pollIntervalMinutes, 5)
+            }
+
+            test("set and get notificationsEnabled") {
+                let store = PreferencesStore(defaults: freshDefaults())
+                store.notificationsEnabled = false
+                try expect(store.notificationsEnabled, false)
             }
         }
 

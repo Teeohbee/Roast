@@ -15,11 +15,11 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 - **Jira integration** - Cmd-click a PR with a ticket reference to open Jira
 - **Draft filtering** - Other people's drafts are hidden; yours still show
 
-| Menu bar icon | State |
+| Menu bar | State |
 |------|-------|
-| Flame (outlined) | All clear |
-| Flame (filled) + count | PRs need your attention |
-| Flame + ! | Error - check Settings |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/menubar/clear-dark.png"><img src="docs/menubar/clear-light.png" height="22" alt="Outlined flame"></picture> | All clear |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/menubar/attention-dark.png"><img src="docs/menubar/attention-light.png" height="22" alt="Filled flame with count"></picture> | PRs need your attention |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/menubar/error-dark.png"><img src="docs/menubar/error-light.png" height="22" alt="Outlined flame with !"></picture> | Error - check Settings |
 
 ## Install
 

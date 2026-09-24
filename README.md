@@ -10,7 +10,8 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 - **Team-scoped** - Only shows PRs from your GitHub team members
 - **CI status** - Green, red, or yellow dot per PR so you know if CI is passing
 - **Stale review detection** - PRs return to "Needs My Review" when new commits are pushed after your review
-- **New comment indicators** - Blue inline count on any PR with new comments since you last clicked it
+- **New comment indicators** - Blue inline count on any PR with new comments from other people (conversation and inline, bots excluded) since you last clicked it
+- **Notifications** - macOS banners for review requests, new commits since your review, verdicts and new comments on your PRs. One per PR per poll; clicking opens the PR and marks it seen
 - **Jira integration** - Cmd-click any PR with a ticket reference to open Jira
 - **Draft filtering** - Other people's draft PRs are hidden; yours still show in "My PRs"
 - **Lightweight** - Pure AppKit, no Electron, no SwiftUI, no dependencies
@@ -47,6 +48,8 @@ On first launch, Settings opens automatically. You need:
 1. **GitHub Token** - a [classic PAT](https://github.com/settings/tokens/new) with `read:org`, `repo`, `notifications` scopes
 2. **Team** - your GitHub team slug (e.g. `simplybusiness/high-rollers`)
 3. **Poll interval** - how often to check GitHub (default 2 minutes)
+
+Roast asks for notification permission on first launch. It must run from an Applications folder (`--install` does this); macOS refuses notifications to apps run from elsewhere. Turn banners off with **Show notifications** in Settings. If macOS has them turned off, Settings says so and links to System Settings.
 
 ## How it works
 

@@ -39,7 +39,7 @@ echo "Done: $APP_BUNDLE"
 
 if [ "${1:-}" = "--install" ]; then
     echo "Installing to /Applications..."
-    rm -rf "/Applications/$APP_NAME.app"
-    cp -R "$APP_BUNDLE" /Applications/
+    mkdir -p "/Applications/$APP_NAME.app"
+    rsync -a --delete "$APP_BUNDLE/" "/Applications/$APP_NAME.app/"
     echo "Installed to /Applications/$APP_NAME.app"
 fi

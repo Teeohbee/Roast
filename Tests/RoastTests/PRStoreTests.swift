@@ -252,6 +252,14 @@ enum PRStoreTests {
 
     static func runDiffTests() {
         suite("PRStore detectChanges - review requests") {
+            test("no events on first poll") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "alice", reviewRequestedLogins: ["bob"])
+                _ = store.categorise([pr])
+                try expect(store.detectChanges().isEmpty, "expected first poll to set a silent baseline")
+            }
+
             test("new review request detected") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")

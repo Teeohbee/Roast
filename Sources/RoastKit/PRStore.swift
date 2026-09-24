@@ -8,6 +8,7 @@ public final class PRStore {
     public private(set) var previousCategorised: CategorisedPRs = .empty
 
     private var seenCommentCounts: [String: Int] = [:]
+    private var pollCount = 0
 
     public init(preferences: PreferencesStore, currentUser: String) {
         self.preferences = preferences
@@ -17,6 +18,7 @@ public final class PRStore {
     @discardableResult
     public func categorise(_ prs: [PullRequest], teamMembers: [String] = []) -> CategorisedPRs {
         previousCategorised = categorised
+        pollCount += 1
         let teamMemberSet = Set(teamMembers)
 
         var myPRs: [PullRequest] = []
@@ -69,6 +71,7 @@ public final class PRStore {
     }
 
     public func detectChanges() -> [PREvent] {
+        guard pollCount > 1 else { return [] }
         var events: [PREvent] = []
 
         let previousReviewIDs = Set(previousCategorised.needsMyReview.map(\.id))

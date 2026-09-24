@@ -150,8 +150,14 @@ public struct CategorisedPRs: Equatable, Sendable {
     public static let empty = CategorisedPRs(needsMyReview: [], myPRs: [])
 }
 
+public enum ReviewReason: Equatable, Sendable {
+    case requested
+    case teamMemberPR
+    case staleReview
+}
+
 public enum PREvent: Equatable, Sendable {
-    case reviewRequested(pr: PullRequest)
+    case reviewRequested(pr: PullRequest, reason: ReviewReason)
     case approved(pr: PullRequest, reviewer: String)
     case changesRequested(pr: PullRequest, reviewer: String)
     case newComments(pr: PullRequest, count: Int)

@@ -9,6 +9,7 @@ public final class PRStore {
 
     private var seenCommentCounts: [String: Int] = [:]
     private var pollCount = 0
+    private var reviewReasons: [String: ReviewReason] = [:]
 
     public init(preferences: PreferencesStore, currentUser: String) {
         self.preferences = preferences
@@ -23,6 +24,7 @@ public final class PRStore {
 
         var myPRs: [PullRequest] = []
         var needsMyReview: [PullRequest] = []
+        reviewReasons = [:]
 
         for pr in prs {
             seedBaselineIfNeeded(pr)
@@ -36,10 +38,13 @@ public final class PRStore {
 
             let verdict = pr.latestVerdictByUser[currentUser]
             let hasReviewed = verdict == .approved || verdict == .changesRequested
-            let needsReview = isReviewRequestedForMe(pr) || teamMemberSet.contains(pr.author)
+            let isRequested = isReviewRequestedForMe(pr)
+            let needsReview = isRequested || teamMemberSet.contains(pr.author)
+            let isStale = pr.isReviewStale(for: currentUser)
 
-            if needsReview && (!hasReviewed || pr.isReviewStale(for: currentUser)) {
+            if needsReview && (!hasReviewed || isStale) {
                 needsMyReview.append(pr)
+                reviewReasons[pr.id] = hasReviewed ? .staleReview : isRequested ? .requested : .teamMemberPR
             }
         }
 
@@ -76,7 +81,7 @@ public final class PRStore {
 
         let previousReviewIDs = Set(previousCategorised.needsMyReview.map(\.id))
         for pr in categorised.needsMyReview where !previousReviewIDs.contains(pr.id) {
-            events.append(.reviewRequested(pr: pr))
+            events.append(.reviewRequested(pr: pr, reason: reviewReasons[pr.id] ?? .requested))
         }
 
         let previousMyPRsByID = Dictionary(uniqueKeysWithValues: previousCategorised.myPRs.map { ($0.id, $0) })

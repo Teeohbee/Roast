@@ -268,7 +268,37 @@ enum PRStoreTests {
                 _ = store.categorise([pr])
                 let events = store.detectChanges()
                 try expect(events.count, 1)
-                try expect(events[0] == .reviewRequested(pr: pr), "expected reviewRequested event")
+                try expect(events[0] == .reviewRequested(pr: pr, reason: .requested), "expected reviewRequested event")
+            }
+
+            test("team member PR with no request has teamMemberPR reason") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "alice")
+                _ = store.categorise([], teamMembers: ["alice"])
+                _ = store.categorise([pr], teamMembers: ["alice"])
+                try expect(store.detectChanges() == [.reviewRequested(pr: pr, reason: .teamMemberPR)], "expected teamMemberPR reason")
+            }
+
+            test("new commits after my review has staleReview reason, even when requested") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let reviewedAt = Date(timeIntervalSince1970: 1_000)
+                let reviewed = [Review(author: "bob", verdict: .approved, submittedAt: reviewedAt)]
+                let before = ModelsTests.makePR(author: "alice", reviewRequestedLogins: ["bob"], latestReviews: reviewed, lastCommitDate: reviewedAt.addingTimeInterval(-60))
+                let after = ModelsTests.makePR(author: "alice", reviewRequestedLogins: ["bob"], latestReviews: reviewed, lastCommitDate: reviewedAt.addingTimeInterval(60))
+                _ = store.categorise([before])
+                _ = store.categorise([after])
+                try expect(store.detectChanges() == [.reviewRequested(pr: after, reason: .staleReview)], "expected staleReview reason")
+            }
+
+            test("requested beats team member") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(author: "alice", reviewRequestedTeams: ["myteam"])
+                _ = store.categorise([], teamMembers: ["alice"])
+                _ = store.categorise([pr], teamMembers: ["alice"])
+                try expect(store.detectChanges() == [.reviewRequested(pr: pr, reason: .requested)], "expected requested reason")
             }
 
             test("no event when review request already existed") {

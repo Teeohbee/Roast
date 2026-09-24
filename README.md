@@ -1,5 +1,9 @@
 # Roast
 
+[![Tests](https://github.com/Teeohbee/Roast/actions/workflows/tests.yml/badge.svg)](https://github.com/Teeohbee/Roast/actions/workflows/tests.yml)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+
 *Had your PR Roasted yet?*
 
 A native macOS menubar app that shows GitHub PRs requiring your attention, scoped to your team.

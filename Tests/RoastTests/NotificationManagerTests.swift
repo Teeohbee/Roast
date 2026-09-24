@@ -29,11 +29,33 @@ enum NotificationManagerTests {
             }
         }
 
+        suite("NotificationManager avatar") {
+            test("avatar is whoever acted") {
+                let pr = ModelsTests.makePR(author: "alice")
+                try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .requested)).actor, "alice")
+                try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).actor, "carol")
+                try expect(NotificationManager.notification(for: .newComments(pr: pr, count: 1, by: "dave")).actor, "dave")
+            }
+
+            test("verdict with comments shows the reviewer") {
+                let pr = ModelsTests.makePR(id: "PR_1")
+                let result = NotificationManager.notifications(for: [
+                    .newComments(pr: pr, count: 2, by: "dave"),
+                    .changesRequested(pr: pr, reviewer: "carol"),
+                ])
+                try expect(result.map(\.actor), ["carol"])
+            }
+
+            test("avatar URL is the public GitHub avatar") {
+                try expect(NotificationManager.avatarURL(for: "carol").absoluteString, "https://github.com/carol.png?size=128")
+            }
+        }
+
         suite("NotificationManager grouping") {
             test("verdict and comments on one PR become one notification") {
                 let pr = ModelsTests.makePR(id: "PR_1", title: "Add widget", repoName: "chopin")
                 let result = NotificationManager.notifications(for: [
-                    .newComments(pr: pr, count: 4),
+                    .newComments(pr: pr, count: 4, by: "dave"),
                     .changesRequested(pr: pr, reviewer: "carol"),
                 ])
                 try expect(result, [NotificationManager.notification(for: .changesRequested(pr: pr, reviewer: "carol"), extraComments: 4)])
@@ -41,8 +63,8 @@ enum NotificationManagerTests {
 
             test("comments alone stay a comments notification") {
                 let pr = ModelsTests.makePR(id: "PR_1")
-                let result = NotificationManager.notifications(for: [.newComments(pr: pr, count: 2)])
-                try expect(result, [NotificationManager.notification(for: .newComments(pr: pr, count: 2))])
+                let result = NotificationManager.notifications(for: [.newComments(pr: pr, count: 2, by: "dave")])
+                try expect(result, [NotificationManager.notification(for: .newComments(pr: pr, count: 2, by: "dave"))])
             }
 
             test("different PRs stay separate, in event order") {

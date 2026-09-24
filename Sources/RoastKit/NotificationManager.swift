@@ -8,6 +8,7 @@ public struct PRNotification: Equatable, Sendable {
     public let subtitle: String
     public let body: String
     public let threadID: String
+    public let actor: String
 }
 
 @MainActor
@@ -44,13 +45,18 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         }
 
         for notification in notifications {
-            let content = UNMutableNotificationContent()
-            content.title = notification.title
-            content.subtitle = notification.subtitle
-            content.body = notification.body
-            content.threadIdentifier = notification.threadID
-            content.userInfo = ["prID": notification.prID, "url": notification.url.absoluteString]
-            post(id: notification.prID, content: content)
+            Task {
+                let content = UNMutableNotificationContent()
+                content.title = notification.title
+                content.subtitle = notification.subtitle
+                content.body = notification.body
+                content.threadIdentifier = notification.threadID
+                content.userInfo = ["prID": notification.prID, "url": notification.url.absoluteString]
+                if let avatar = await Self.avatarAttachment(for: notification.actor) {
+                    content.attachments = [avatar]
+                }
+                post(id: notification.prID, content: content)
+            }
         }
     }
 
@@ -58,12 +64,14 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         var order: [PullRequest] = []
         var primary: [String: PREvent] = [:]
         var comments: [String: Int] = [:]
+        var commenters: [String: String] = [:]
 
         for event in events {
             let id = event.pr.id
             if !order.contains(event.pr) { order.append(event.pr) }
-            if case .newComments(_, let count) = event {
+            if case .newComments(_, let count, let commenter) = event {
                 comments[id, default: 0] += count
+                commenters[id] = commenters[id] ?? commenter
             } else if primary[id] == nil {
                 primary[id] = event
             }
@@ -74,7 +82,7 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
             if let event = primary[pr.id] {
                 return notification(for: event, extraComments: commentCount)
             }
-            return notification(for: .newComments(pr: pr, count: commentCount))
+            return notification(for: .newComments(pr: pr, count: commentCount, by: commenters[pr.id] ?? pr.author))
         }
     }
 
@@ -82,10 +90,12 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         let title: String
         let body: String
         let pr: PullRequest
+        let actor: String
 
         switch event {
         case .reviewRequested(let requested, let reason):
             pr = requested
+            actor = pr.author
             switch reason {
             case .requested:
                 title = "Review requested"
@@ -99,22 +109,41 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
             }
         case .approved(let approved, let reviewer):
             pr = approved
+            actor = reviewer
             title = "PR approved"
             body = "\(reviewer) approved \"\(pr.title)\""
         case .changesRequested(let changed, let reviewer):
             pr = changed
+            actor = reviewer
             title = "Changes requested"
             body = "\(reviewer) requested changes on \"\(pr.title)\""
-        case .newComments(let commented, let count):
+        case .newComments(let commented, let count, let commenter):
             pr = commented
+            actor = commenter
             title = "New comments"
             body = "\(count) new comment\(count == 1 ? "" : "s") on \"\(pr.title)\""
         }
 
         let suffix = extraComments > 0 ? " (+\(extraComments) comment\(extraComments == 1 ? "" : "s"))" : ""
         return PRNotification(
-            prID: pr.id, url: pr.url, title: title, subtitle: pr.repoName, body: body + suffix, threadID: pr.repoName
+            prID: pr.id, url: pr.url, title: title, subtitle: pr.repoName, body: body + suffix, threadID: pr.repoName,
+            actor: actor
         )
+    }
+
+    nonisolated static func avatarURL(for login: String) -> URL {
+        URL(string: "https://github.com/\(login).png?size=128")!
+    }
+
+    private static func avatarAttachment(for login: String) async -> UNNotificationAttachment? {
+        var request = URLRequest(url: avatarURL(for: login))
+        request.timeoutInterval = 5
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        let ext = response.mimeType == "image/jpeg" ? "jpg" : "png"
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).\(ext)")
+        guard (try? data.write(to: file)) != nil else { return nil }
+        return try? UNNotificationAttachment(identifier: "avatar", url: file)
     }
 
     private func post(id: String, content: UNMutableNotificationContent) {

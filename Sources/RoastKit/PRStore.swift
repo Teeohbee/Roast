@@ -90,8 +90,8 @@ public final class PRStore {
         for pr in categorised.myPRs {
             if let previous = previousMyPRsByID[pr.id] {
                 let added = pr.commentCount(excluding: currentUser) - previous.commentCount(excluding: currentUser)
-                if added > 0 {
-                    events.append(.newComments(pr: pr, count: added))
+                if added > 0, let commenter = topNewCommenter(pr, since: previous) {
+                    events.append(.newComments(pr: pr, count: added, by: commenter))
                 }
             }
 
@@ -130,6 +130,15 @@ public final class PRStore {
         let team = preferences.teamName
         if !team.isEmpty && pr.reviewRequestedTeams.contains(team) { return true }
         return false
+    }
+
+    private func topNewCommenter(_ pr: PullRequest, since previous: PullRequest) -> String? {
+        pr.commentCountsByAuthor
+            .filter { $0.key != currentUser }
+            .map { (author: $0.key, added: $0.value - (previous.commentCountsByAuthor[$0.key] ?? 0)) }
+            .filter { $0.added > 0 }
+            .max { ($0.added, $1.author) < ($1.added, $0.author) }?
+            .author
     }
 
     private func seedBaselineIfNeeded(_ pr: PullRequest) {

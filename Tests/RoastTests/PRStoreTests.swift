@@ -367,7 +367,16 @@ enum PRStoreTests {
                 let after = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
                 _ = store.categorise([before])
                 _ = store.categorise([after])
-                try expect(store.detectChanges() == [.newComments(pr: after, count: 3)], "expected newComments with count 3")
+                try expect(store.detectChanges() == [.newComments(pr: after, count: 3, by: "carol")], "expected newComments with count 3")
+            }
+
+            test("comments are attributed to whoever added the most") {
+                let store = PRStore(preferences: freshPreferences(), currentUser: "bob")
+                let before = ModelsTests.makePR(id: "PR_1", author: "bob", commentCountsByAuthor: ["carol": 5, "dave": 1])
+                let after = ModelsTests.makePR(id: "PR_1", author: "bob", commentCountsByAuthor: ["carol": 6, "dave": 4, "bob": 9])
+                _ = store.categorise([before])
+                _ = store.categorise([after])
+                try expect(store.detectChanges() == [.newComments(pr: after, count: 4, by: "dave")], "expected dave as commenter")
             }
 
             test("unseen but unchanged comments do not re-notify") {

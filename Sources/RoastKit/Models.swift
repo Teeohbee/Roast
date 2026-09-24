@@ -165,4 +165,11 @@ public enum PREvent: Equatable, Sendable {
     case approved(pr: PullRequest, reviewer: String)
     case changesRequested(pr: PullRequest, reviewer: String)
     case newComments(pr: PullRequest, count: Int)
+
+    public var pr: PullRequest {
+        switch self {
+        case .reviewRequested(let pr, _), .approved(let pr, _), .changesRequested(let pr, _), .newComments(let pr, _):
+            return pr
+        }
+    }
 }

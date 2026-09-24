@@ -19,7 +19,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
 
         preferences = PreferencesStore()
         statusBarController = StatusBarController()
-        notifications = NotificationManager()
+        notifications = NotificationManager(preferences: preferences)
         poller = Poller(
             preferences: preferences,
             statusBar: statusBarController,
@@ -39,10 +39,21 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             self?.poller.markSeen(pr)
         }
 
+        notifications.onPRClicked = { [weak self] prID in
+            self?.poller.markSeen(prID: prID)
+        }
+
         preferencesWindow.onSaved = { [weak self] in
+            if self?.preferences.notificationsEnabled == true {
+                self?.notifications.requestPermission()
+            }
             self?.poller.resetClient()
             self?.poller.scheduleTimer()
             self?.poller.poll()
+        }
+
+        if preferences.notificationsEnabled {
+            notifications.requestPermission()
         }
 
         if SMAppService.mainApp.status != .enabled {

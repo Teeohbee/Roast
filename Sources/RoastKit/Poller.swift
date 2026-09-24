@@ -104,4 +104,10 @@ public final class Poller {
         store.markSeen(pr)
         statusBar.refresh(badgeCount: store.badgeCount)
     }
+
+    public func markSeen(prID: String) {
+        let all = (prStore?.categorised.needsMyReview ?? []) + (prStore?.categorised.myPRs ?? [])
+        guard let pr = all.first(where: { $0.id == prID }) else { return }
+        markSeen(pr)
+    }
 }

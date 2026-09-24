@@ -26,9 +26,19 @@ cd Roast
 ./build.sh --install
 ```
 
-This builds a release binary and copies `Roast.app` to `/Applications`.
+This builds a release binary, signs the bundle and copies `Roast.app` to `/Applications`.
 
-Because the app isn't code-signed, macOS will ask for your keychain password the first time Roast reads or writes the GitHub token. Click **Always Allow** and it won't ask again unless you rebuild.
+### Signing certificate (one-time)
+
+`build.sh` signs with a self-signed certificate named `Roast Dev`, so macOS sees the same app across rebuilds and keeps its Keychain access. Create it in **Keychain Access → Certificate Assistant → Create a Certificate**:
+
+- Name: `Roast Dev`
+- Identity Type: Self-Signed Root
+- Certificate Type: Code Signing
+
+It doesn't need to be trusted. Without it, `build.sh` falls back to ad-hoc signing with a warning, and permissions reset on every rebuild. Use a different certificate with `SIGN_IDENTITY="My Cert" ./build.sh`.
+
+The first time Roast reads the GitHub token after a signing change, macOS asks for your keychain password. Click **Always Allow**.
 
 ## Setup
 

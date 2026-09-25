@@ -3,7 +3,6 @@ import AppKit
 @MainActor
 public final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
-    private var currentMenu: NSMenu?
     private var categorised: CategorisedPRs = .empty
     private var badgeCount: Int = 0
     private var errorState: Bool = false
@@ -19,8 +18,6 @@ public final class StatusBarController: NSObject {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         statusItem.behavior = .removalAllowed
-        statusItem.button?.action = #selector(statusItemClicked(_:))
-        statusItem.button?.target = self
         updateIcon()
         rebuildMenu()
     }
@@ -88,13 +85,6 @@ public final class StatusBarController: NSObject {
         statusItem.button?.toolTip = label
     }
 
-    // MARK: - Click
-
-    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
-        guard let menu = currentMenu, let button = statusItem.button else { return }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 5), in: button)
-    }
-
     // MARK: - Menu
 
     private func rebuildMenu() {
@@ -135,7 +125,7 @@ public final class StatusBarController: NSObject {
         quitItem.target = self
         menu.addItem(quitItem)
 
-        self.currentMenu = menu
+        self.statusItem.menu = menu
     }
 
     private func addSection(to menu: NSMenu, title: String, prs: [PullRequest], subtitle: (PullRequest) -> NSAttributedString) {

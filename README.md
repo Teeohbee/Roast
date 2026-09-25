@@ -29,15 +29,7 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 
 Roast is built from source. Requires macOS 14+ and Xcode Command Line Tools (`xcode-select --install`).
 
-**1. Create a signing certificate (one-time).** In **Keychain Access → Certificate Assistant → Create a Certificate**:
-
-- Name: `Roast Dev`
-- Identity Type: Self-Signed Root
-- Certificate Type: Code Signing
-
-This lets macOS recognise Roast as the same app after every rebuild, so it keeps its Keychain and notification permissions. Keychain Access will show it as untrusted, which is fine.
-
-**2. Build and install.**
+**1. Build and install.**
 
 ```bash
 git clone git@github.com:Teeohbee/Roast.git
@@ -47,7 +39,7 @@ cd Roast
 
 Always launch Roast from `/Applications`: macOS refuses notifications to apps run from anywhere else.
 
-**3. First launch.**
+**2. First launch.**
 
 - Click **Always Allow** on the keychain prompt (Roast stores its GitHub token there)
 - Click **Allow** on the notification prompt
@@ -55,7 +47,7 @@ Always launch Roast from `/Applications`: macOS refuses notifications to apps ru
 
 If no banners ever appear, turn them on in **System Settings → Notifications → Roast**. macOS sometimes records the first answer as off.
 
-**Updating:** `git pull && ./build.sh --install`, then quit and reopen Roast.
+**Updating:** `git pull && ./build.sh --install`, then quit and reopen Roast. macOS asks for your login password on the keychain prompt after every rebuild - enter it and click **Always Allow**.
 
 ## Tests
 

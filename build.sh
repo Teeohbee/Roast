@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Roast"
 APP_BUNDLE="$SCRIPT_DIR/$APP_NAME.app"
 BUNDLE_ID="com.toby.roast"
-SIGN_IDENTITY="${SIGN_IDENTITY:-Roast Dev}"
 
 echo "Building $APP_NAME..."
 cd "$SCRIPT_DIR"
@@ -26,13 +25,8 @@ cp "$EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/Roast"
 cp Info.plist "$APP_BUNDLE/Contents/Info.plist"
 cp AppIcon.icns "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
-if ! security find-identity -p codesigning | grep -q "\"$SIGN_IDENTITY\""; then
-    echo "Warning: signing identity \"$SIGN_IDENTITY\" not found, signing ad-hoc (permissions reset on every rebuild)" >&2
-    SIGN_IDENTITY="-"
-fi
-
-echo "Signing with $SIGN_IDENTITY..."
-codesign --force --sign "$SIGN_IDENTITY" --identifier "$BUNDLE_ID" "$APP_BUNDLE"
+echo "Signing ad-hoc..."
+codesign --force --sign - --identifier "$BUNDLE_ID" "$APP_BUNDLE"
 codesign --verify --deep --strict "$APP_BUNDLE"
 
 echo "Done: $APP_BUNDLE"

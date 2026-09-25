@@ -41,11 +41,10 @@ Always launch Roast from `/Applications`: macOS refuses notifications to apps ru
 
 **2. First launch.**
 
-- Click **Always Allow** on the keychain prompt (Roast stores its GitHub token there)
 - Click **Allow** on the notification prompt
-- In Settings, enter a [classic token](https://github.com/settings/tokens/new) with `read:org` and `repo` scopes, and your team slug (e.g. `simplybusiness/high-rollers`)
+- In Settings, enter a [classic token](https://github.com/settings/tokens/new) with `read:org` and `repo` scopes (stored in your keychain), and your team slug (e.g. `simplybusiness/high-rollers`)
 
-If no banners ever appear, turn them on in **System Settings → Notifications → Roast**. macOS sometimes records the first answer as off.
+Click **Send Test** in Settings to check notifications. If no banner appears, turn them on in **System Settings → Notifications → Roast**. macOS sometimes records the first answer as off.
 
 **Updating:** `git pull && ./build.sh --install`, then quit and reopen Roast. macOS asks for your login password on the keychain prompt after every rebuild - enter it and click **Always Allow**.
 

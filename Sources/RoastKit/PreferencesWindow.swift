@@ -86,7 +86,12 @@ public final class PreferencesWindow: NSObject {
 
         notificationsCheckbox = NSButton(checkboxWithTitle: "Show notifications", target: nil, action: nil)
         notificationsCheckbox.state = preferences.notificationsEnabled ? .on : .off
-        stack.addArrangedSubview(notificationsCheckbox)
+        let testButton = NSButton(title: "Send Test", target: self, action: #selector(sendTestNotification))
+        testButton.bezelStyle = .inline
+        let notificationsRow = NSStackView(views: [notificationsCheckbox, testButton])
+        notificationsRow.orientation = .horizontal
+        notificationsRow.spacing = 8
+        stack.addArrangedSubview(notificationsRow)
 
         let blockedLabel = NSTextField(labelWithString: "Turned off in System Settings")
         blockedLabel.textColor = .secondaryLabelColor
@@ -153,6 +158,10 @@ public final class PreferencesWindow: NSObject {
     @objc private func openNotificationSettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    @objc private func sendTestNotification() {
+        notifications.sendTest()
     }
 
     @objc private func stepperChanged() {

@@ -27,6 +27,16 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    public func sendTest() {
+        Task {
+            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            let content = UNMutableNotificationContent()
+            content.title = "Roast"
+            content.body = "Test notification"
+            post(id: "test", content: content)
+        }
+    }
+
     public func isBlockedBySystem() async -> Bool {
         await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied
     }

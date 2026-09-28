@@ -10,6 +10,8 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 
 ## Features
 
+<img width="609" height="520" alt="Screenshot 2026-09-28 at 15 16 22 blurred" src="https://github.com/user-attachments/assets/cd5fb133-61d3-4f1c-a7db-ef1d2cae4bcd" />
+
 - **Two-section menu** - "Needs My Review" and "My PRs"
 - **Team-scoped** - PRs by your team members, requested from your team, or mentioning it
 - **CI status** - Green, red or yellow dot per PR

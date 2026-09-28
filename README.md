@@ -52,6 +52,8 @@ Click **Send Test** in Settings to check notifications. If no banner appears, tu
 
 **Updating:** `git pull && ./build.sh --install`, then quit and reopen Roast. macOS asks for your login password on the keychain prompt after every rebuild - enter it and click **Always Allow**.
 
+**Installed in `/Applications` before September 2026?** The install moved to `~/Applications`. To move with it: quit Roast, run `./build.sh --install`, drag `/Applications/Roast.app` to the Bin, and open Roast from `~/Applications`. Your token, team and notification permission carry over. If **Launch at login** in Settings looks off, tick it again. To stay in `/Applications` instead, install with `INSTALL_DIR=/Applications ./build.sh --install`.
+
 ## Tests
 
 ```bash

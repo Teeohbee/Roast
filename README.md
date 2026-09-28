@@ -39,7 +39,9 @@ cd Roast
 ./build.sh --install
 ```
 
-Always launch Roast from `/Applications`: macOS refuses notifications to apps run from anywhere else.
+This installs into `~/Applications`, which needs no admin rights. To install for every user instead, run `INSTALL_DIR=/Applications ./build.sh --install`.
+
+Always launch Roast from an Applications folder: macOS refuses notifications to apps run from anywhere else.
 
 **2. First launch.**
 

@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Roast"
 APP_BUNDLE="$SCRIPT_DIR/$APP_NAME.app"
 BUNDLE_ID="com.toby.roast"
+# ~/Applications needs no admin rights. Set INSTALL_DIR=/Applications to install system-wide.
+INSTALL_DIR="${INSTALL_DIR:-$HOME/Applications}"
 
 echo "Building $APP_NAME..."
 cd "$SCRIPT_DIR"
@@ -32,8 +34,8 @@ codesign --verify --deep --strict "$APP_BUNDLE"
 echo "Done: $APP_BUNDLE"
 
 if [ "${1:-}" = "--install" ]; then
-    echo "Installing to /Applications..."
-    mkdir -p "/Applications/$APP_NAME.app"
-    rsync -a --delete "$APP_BUNDLE/" "/Applications/$APP_NAME.app/"
-    echo "Installed to /Applications/$APP_NAME.app"
+    echo "Installing to $INSTALL_DIR..."
+    mkdir -p "$INSTALL_DIR/$APP_NAME.app"
+    rsync -a --delete "$APP_BUNDLE/" "$INSTALL_DIR/$APP_NAME.app/"
+    echo "Installed to $INSTALL_DIR/$APP_NAME.app"
 fi

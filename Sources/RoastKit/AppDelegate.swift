@@ -39,6 +39,10 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             self?.poller.markSeen(pr)
         }
 
+        statusBarController.onStartReview = { [weak self] pr in
+            self?.notifications.startReview(url: pr.url, repo: pr.repoName, number: pr.number) ?? false
+        }
+
         notifications.onPRClicked = { [weak self] prID in
             self?.poller.markSeen(prID: prID)
         }

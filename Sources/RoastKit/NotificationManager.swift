@@ -176,9 +176,10 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         return try? UNNotificationAttachment(identifier: "avatar", url: file)
     }
 
-    private func startReview(url: URL, repo: String, number: Int) {
+    @discardableResult
+    public func startReview(url: URL, repo: String, number: Int) -> Bool {
         let template = preferences.reviewCommand
-        guard !template.isEmpty else { return }
+        guard !template.isEmpty else { return false }
         let command = ReviewCommand.expand(template, url: url.absoluteString, repo: repo, number: number)
         ITermLauncher.open(command: command) { error in
             Task { @MainActor in
@@ -188,6 +189,7 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
                 self.post(id: "review-failed", content: content)
             }
         }
+        return true
     }
 
     private func post(id: String, content: UNMutableNotificationContent) {

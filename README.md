@@ -62,7 +62,7 @@ Roast can add a **Start review** button to review-request banners. It's iTerm on
 defaults write com.toby.roast roast.reviewCommand -string "cd ~/Projects && claude -n 'review {repo}#{number}' '/review {url}'"
 ```
 
-Quit and reopen Roast. To turn the button off, run `defaults delete com.toby.roast roast.reviewCommand`. The first click asks to let Roast control iTerm2, and asks again after each rebuild. Hover over a banner to see the button, or set Roast's notifications to **Alerts** to keep it showing.
+Quit and reopen Roast. You can also Option-click a PR in the menu to start a review. To turn the button off, run `defaults delete com.toby.roast roast.reviewCommand`. The first click asks to let Roast control iTerm2, and asks again after each rebuild. Hover over a banner to see the button, or set Roast's notifications to **Alerts** to keep it showing.
 
 ## Tests
 

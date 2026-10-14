@@ -13,6 +13,7 @@ public final class StatusBarController: NSObject {
     public var onRefresh: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
     public var onPRClicked: ((PullRequest) -> Void)?
+    public var onStartReview: ((PullRequest) -> Bool)?
 
     public override init() {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -257,8 +258,13 @@ public final class StatusBarController: NSObject {
     @objc private func prClicked(_ sender: NSMenuItem) {
         guard let pr = sender.representedObject as? PullRequest else { return }
 
-        let cmdHeld = NSEvent.modifierFlags.contains(.command)
-        if cmdHeld, let jiraURL = pr.jiraURL {
+        let modifiers = NSEvent.modifierFlags
+        if modifiers.contains(.option), onStartReview?(pr) == true {
+            onPRClicked?(pr)
+            return
+        }
+
+        if modifiers.contains(.command), let jiraURL = pr.jiraURL {
             NSWorkspace.shared.open(jiraURL)
         } else {
             NSWorkspace.shared.open(pr.url)

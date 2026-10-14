@@ -4,16 +4,20 @@ import UserNotifications
 public struct PRNotification: Equatable, Sendable {
     public let prID: String
     public let url: URL
+    public let number: Int
     public let title: String
     public let subtitle: String
     public let body: String
     public let threadID: String
     public let actor: String
+    public let isReviewRequest: Bool
 }
 
 @MainActor
 public final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private static let collapseThreshold = 5
+    private static let reviewCategory = "reviewRequest"
+    nonisolated private static let startReviewAction = "startReview"
     private let preferences: PreferencesStore
     public var onPRClicked: ((String) -> Void)?
 
@@ -21,6 +25,13 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         self.preferences = preferences
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(
+                identifier: Self.reviewCategory,
+                actions: [UNNotificationAction(identifier: Self.startReviewAction, title: "Start review")],
+                intentIdentifiers: []
+            ),
+        ])
     }
 
     public func requestPermission() {
@@ -61,7 +72,15 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
                 content.subtitle = notification.subtitle
                 content.body = notification.body
                 content.threadIdentifier = notification.threadID
-                content.userInfo = ["prID": notification.prID, "url": notification.url.absoluteString]
+                content.userInfo = [
+                    "prID": notification.prID,
+                    "url": notification.url.absoluteString,
+                    "repo": notification.subtitle,
+                    "number": notification.number,
+                ]
+                if notification.isReviewRequest && !preferences.reviewCommand.isEmpty {
+                    content.categoryIdentifier = Self.reviewCategory
+                }
                 if let avatar = await Self.avatarAttachment(for: notification.actor) {
                     content.attachments = [avatar]
                 }
@@ -135,9 +154,10 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         }
 
         let suffix = extraComments > 0 ? " (+\(extraComments) comment\(extraComments == 1 ? "" : "s"))" : ""
+        let isReviewRequest = if case .reviewRequested = event { true } else { false }
         return PRNotification(
-            prID: pr.id, url: pr.url, title: title, subtitle: pr.repoName, body: body + suffix, threadID: pr.repoName,
-            actor: actor
+            prID: pr.id, url: pr.url, number: pr.number, title: title, subtitle: pr.repoName, body: body + suffix,
+            threadID: pr.repoName, actor: actor, isReviewRequest: isReviewRequest
         )
     }
 
@@ -156,6 +176,20 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         return try? UNNotificationAttachment(identifier: "avatar", url: file)
     }
 
+    private func startReview(url: URL, repo: String, number: Int) {
+        let template = preferences.reviewCommand
+        guard !template.isEmpty else { return }
+        let command = ReviewCommand.expand(template, url: url.absoluteString, repo: repo, number: number)
+        ITermLauncher.open(command: command) { error in
+            Task { @MainActor in
+                let content = UNMutableNotificationContent()
+                content.title = "Couldn't open iTerm"
+                content.body = error
+                self.post(id: "review-failed", content: content)
+            }
+        }
+    }
+
     private func post(id: String, content: UNMutableNotificationContent) {
         content.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
@@ -171,8 +205,15 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         let userInfo = response.notification.request.content.userInfo
         let prID = userInfo["prID"] as? String
         let url = (userInfo["url"] as? String).flatMap(URL.init(string:))
+        let repo = userInfo["repo"] as? String
+        let number = userInfo["number"] as? Int
+        let isStartReview = response.actionIdentifier == Self.startReviewAction
         Task { @MainActor in
-            if let url { NSWorkspace.shared.open(url) }
+            if isStartReview, let url, let repo, let number {
+                self.startReview(url: url, repo: repo, number: number)
+            } else if let url {
+                NSWorkspace.shared.open(url)
+            }
             if let prID { self.onPRClicked?(prID) }
         }
         completionHandler()

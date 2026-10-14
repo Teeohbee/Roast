@@ -29,6 +29,27 @@ enum NotificationManagerTests {
             }
         }
 
+        suite("NotificationManager review requests") {
+            test("every review request reason is a review request") {
+                let pr = ModelsTests.makePR()
+                for reason in [ReviewReason.requested, .teamMemberPR, .staleReview] {
+                    try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: reason)).isReviewRequest, true)
+                }
+            }
+
+            test("verdicts and comments are not review requests") {
+                let pr = ModelsTests.makePR()
+                try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).isReviewRequest, false)
+                try expect(NotificationManager.notification(for: .changesRequested(pr: pr, reviewer: "carol")).isReviewRequest, false)
+                try expect(NotificationManager.notification(for: .newComments(pr: pr, count: 1, by: "dave")).isReviewRequest, false)
+            }
+
+            test("carries the PR number") {
+                let pr = ModelsTests.makePR(number: 811)
+                try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .requested)).number, 811)
+            }
+        }
+
         suite("NotificationManager avatar") {
             test("avatar is whoever acted") {
                 let pr = ModelsTests.makePR(author: "alice")

@@ -54,6 +54,16 @@ Click **Send Test** in Settings to check notifications. If no banner appears, tu
 
 **Installed in `/Applications` before September 2026?** The install moved to `~/Applications`. To move with it: quit Roast, run `./build.sh --install`, drag `/Applications/Roast.app` to the Bin, and open Roast from `~/Applications`. Your token, team and notification permission carry over. If **Launch at login** in Settings looks off, tick it again. To stay in `/Applications` instead, install with `INSTALL_DIR=/Applications ./build.sh --install`.
 
+## Advanced: Start review button
+
+Roast can add a **Start review** button to review-request banners. It's iTerm only, and there's no Settings UI for it. Set a command, with `{url}`, `{repo}` and `{number}` filled in, and clicking the button types it into a new background iTerm tab:
+
+```bash
+defaults write com.toby.roast roast.reviewCommand -string "cd ~/Projects && claude -n 'review {repo}#{number}' '/review {url}'"
+```
+
+Quit and reopen Roast. To turn the button off, run `defaults delete com.toby.roast roast.reviewCommand`. The first click asks to let Roast control iTerm2, and asks again after each rebuild. Hover over a banner to see the button, or set Roast's notifications to **Alerts** to keep it showing.
+
 ## Tests
 
 ```bash

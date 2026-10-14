@@ -6,5 +6,6 @@ PRStoreTests.run()
 PRStoreTests.runDiffTests()
 GitHubClientTests.run()
 NotificationManagerTests.run()
+ReviewCommandTests.run()
 
 reportResults()

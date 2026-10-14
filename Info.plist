@@ -18,6 +18,8 @@
     <string>APPL</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Roast opens PR reviews in a new iTerm tab.</string>
     <key>LSUIElement</key>
     <true/>
     <key>LSMinimumSystemVersion</key>

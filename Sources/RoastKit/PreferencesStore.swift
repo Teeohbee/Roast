@@ -7,6 +7,7 @@ public final class PreferencesStore {
         static let teamSlug = "roast.teamSlug"
         static let pollIntervalMinutes = "roast.pollIntervalMinutes"
         static let notificationsEnabled = "roast.notificationsEnabled"
+        static let reviewCommand = "roast.reviewCommand"
         static let lastSeenCommentCounts = "roast.lastSeenOthersCommentCounts"
         static let lastSeenVerdicts = "roast.lastSeenVerdicts"
     }
@@ -31,6 +32,11 @@ public final class PreferencesStore {
     public var notificationsEnabled: Bool {
         get { defaults.object(forKey: Key.notificationsEnabled) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.notificationsEnabled) }
+    }
+
+    public var reviewCommand: String {
+        get { defaults.string(forKey: Key.reviewCommand) ?? "" }
+        set { defaults.set(newValue, forKey: Key.reviewCommand) }
     }
 
     public var org: String {

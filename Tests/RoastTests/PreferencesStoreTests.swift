@@ -23,6 +23,11 @@ enum PreferencesStoreTests {
                 let store = PreferencesStore(defaults: freshDefaults())
                 try expect(store.notificationsEnabled, true)
             }
+
+            test("default reviewCommand is empty") {
+                let store = PreferencesStore(defaults: freshDefaults())
+                try expect(store.reviewCommand, "")
+            }
         }
 
         suite("PreferencesStore set and get") {
@@ -42,6 +47,12 @@ enum PreferencesStoreTests {
                 let store = PreferencesStore(defaults: freshDefaults())
                 store.notificationsEnabled = false
                 try expect(store.notificationsEnabled, false)
+            }
+
+            test("set and get reviewCommand") {
+                let store = PreferencesStore(defaults: freshDefaults())
+                store.reviewCommand = "claude '/hunk-pr-review {url}'"
+                try expect(store.reviewCommand, "claude '/hunk-pr-review {url}'")
             }
         }
 

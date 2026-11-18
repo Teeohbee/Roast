@@ -85,7 +85,7 @@ public struct PullRequest: Sendable {
 
     public func isReviewStale(for user: String) -> Bool {
         guard let commitDate = lastCommitDate else { return false }
-        let myReviews = latestReviews.filter { $0.author == user }
+        let myReviews = verdictReviews.filter { $0.author == user }
         guard let latestReview = myReviews.last, let reviewDate = latestReview.submittedAt else { return false }
         return commitDate > reviewDate
     }
@@ -102,9 +102,12 @@ public struct PullRequest: Sendable {
         RoastKit.relativeAge(since: createdAt)
     }
 
-    /// Last review verdict per reviewer (final entry in latestReviews wins).
+    private var verdictReviews: [Review] {
+        latestReviews.filter { $0.verdict == .approved || $0.verdict == .changesRequested }
+    }
+
     public var latestVerdictByUser: [String: ReviewVerdict] {
-        latestReviews.reduce(into: [:]) { result, review in
+        verdictReviews.reduce(into: [:]) { result, review in
             result[review.author] = review.verdict
         }
     }

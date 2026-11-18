@@ -109,6 +109,22 @@ enum ModelsTests {
                 try expect(pr.latestVerdictByUser["bob"], .approved)
                 try expect(pr.latestVerdictByUser["carol"], .changesRequested)
             }
+
+            test("a later comment-only review keeps the reviewer's Verdict") {
+                let reviews = [
+                    Review(author: "carol", verdict: .approved),
+                    Review(author: "carol", verdict: .commented),
+                ]
+                let pr = makePR(latestReviews: reviews)
+                try expect(pr.latestVerdictByUser["carol"], .approved)
+                try expect(pr.overallVerdict, .approved)
+            }
+
+            test("a reviewer who only commented has no Verdict") {
+                let pr = makePR(latestReviews: [Review(author: "carol", verdict: .commented)])
+                try expect(pr.latestVerdictByUser["carol"], nil)
+                try expect(pr.overallVerdict, .pending)
+            }
         }
 
         suite("overallVerdict") {

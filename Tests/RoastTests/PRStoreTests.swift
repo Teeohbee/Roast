@@ -155,6 +155,38 @@ enum PRStoreTests {
                 let result = store.categorise([pr])
                 try expect(result.needsMyReview.count, 0)
             }
+
+            test("replying after approving keeps PR excluded") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(
+                    author: "alice",
+                    reviewRequestedLogins: ["bob"],
+                    latestReviews: [
+                        Review(author: "bob", verdict: .approved, submittedAt: Date(timeIntervalSince1970: 1_700_000_000)),
+                        Review(author: "bob", verdict: .commented, submittedAt: Date(timeIntervalSince1970: 1_700_001_000)),
+                    ],
+                    lastCommitDate: Date(timeIntervalSince1970: 1_699_000_000)
+                )
+                let result = store.categorise([pr])
+                try expect(result.needsMyReview.count, 0)
+            }
+
+            test("replying after new commits doesn't hide a Stale Review") {
+                let prefs = freshPreferences()
+                let store = PRStore(preferences: prefs, currentUser: "bob")
+                let pr = ModelsTests.makePR(
+                    author: "alice",
+                    reviewRequestedLogins: ["bob"],
+                    latestReviews: [
+                        Review(author: "bob", verdict: .approved, submittedAt: Date(timeIntervalSince1970: 1_700_000_000)),
+                        Review(author: "bob", verdict: .commented, submittedAt: Date(timeIntervalSince1970: 1_700_002_000)),
+                    ],
+                    lastCommitDate: Date(timeIntervalSince1970: 1_700_001_000)
+                )
+                let result = store.categorise([pr])
+                try expect(result.needsMyReview.count, 1)
+            }
         }
 
         suite("PRStore newCommentCount") {

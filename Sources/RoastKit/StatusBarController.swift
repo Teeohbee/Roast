@@ -14,7 +14,6 @@ public final class StatusBarController: NSObject {
     public var onRefresh: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
     public var onPRClicked: ((PullRequest) -> Void)?
-    public var onStartReview: ((PullRequest) -> Bool)?
 
     public override init() {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -148,14 +147,33 @@ public final class StatusBarController: NSObject {
         let sorted = prs.sorted { $0.createdAt > $1.createdAt }
         for pr in sorted {
             let item = NSMenuItem()
-            item.attributedTitle = prAttributedTitle(pr: pr, subtitle: subtitle(pr))
+            let row = prAttributedTitle(pr: pr, subtitle: subtitle(pr))
+            item.attributedTitle = row
             item.action = #selector(prClicked(_:))
             item.target = self
             item.representedObject = pr
+            item.keyEquivalentModifierMask = []
             menu.addItem(item)
+            if let ticket = pr.jiraTicket {
+                addAlternate(to: menu, row: row, action: "Open \(ticket) in Jira", modifier: .command, selector: #selector(jiraClicked(_:)), object: pr)
+            }
+            addAlternate(to: menu, row: row, action: "Copy link", modifier: .option, selector: #selector(copyLinkClicked(_:)), object: pr.url)
         }
 
         menu.addItem(.separator())
+    }
+
+    private func addAlternate(to menu: NSMenu, row: NSAttributedString, action: String, modifier: NSEvent.ModifierFlags, selector: Selector, object: Any?) {
+        let item = NSMenuItem(title: "", action: selector, keyEquivalent: "")
+        let text = NSMutableAttributedString(attributedString: row)
+        text.append(sep())
+        text.append(coloured(action, .controlAccentColor))
+        item.attributedTitle = text
+        item.keyEquivalentModifierMask = modifier
+        item.isAlternate = true
+        item.target = self
+        item.representedObject = object
+        menu.addItem(item)
     }
 
     private func mergedMenu() -> NSMenu {
@@ -176,7 +194,12 @@ public final class StatusBarController: NSObject {
             item.action = #selector(mergedClicked(_:))
             item.target = self
             item.representedObject = pr
+            item.keyEquivalentModifierMask = []
             menu.addItem(item)
+            if let ticket = jiraTicket(in: pr.title) {
+                addAlternate(to: menu, row: title, action: "Open \(ticket) in Jira", modifier: .command, selector: #selector(jiraClicked(_:)), object: pr.jiraURL)
+            }
+            addAlternate(to: menu, row: title, action: "Copy link", modifier: .option, selector: #selector(copyLinkClicked(_:)), object: pr.url)
         }
         return menu
     }
@@ -289,28 +312,28 @@ public final class StatusBarController: NSObject {
 
     @objc private func prClicked(_ sender: NSMenuItem) {
         guard let pr = sender.representedObject as? PullRequest else { return }
-
-        let modifiers = NSEvent.modifierFlags
-        if modifiers.contains(.option), onStartReview?(pr) == true {
-            onPRClicked?(pr)
-            return
-        }
-
-        if modifiers.contains(.command), let jiraURL = pr.jiraURL {
-            NSWorkspace.shared.open(jiraURL)
-        } else {
-            NSWorkspace.shared.open(pr.url)
-        }
+        NSWorkspace.shared.open(pr.url)
         onPRClicked?(pr)
+    }
+
+    @objc private func copyLinkClicked(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+    }
+
+    @objc private func jiraClicked(_ sender: NSMenuItem) {
+        if let pr = sender.representedObject as? PullRequest, let url = pr.jiraURL {
+            NSWorkspace.shared.open(url)
+            onPRClicked?(pr)
+        } else if let url = sender.representedObject as? URL {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func mergedClicked(_ sender: NSMenuItem) {
         guard let pr = sender.representedObject as? MergedPullRequest else { return }
-        if NSEvent.modifierFlags.contains(.command), let jiraURL = pr.jiraURL {
-            NSWorkspace.shared.open(jiraURL)
-        } else {
-            NSWorkspace.shared.open(pr.url)
-        }
+        NSWorkspace.shared.open(pr.url)
     }
 
     @objc private func refreshClicked() {

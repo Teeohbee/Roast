@@ -18,7 +18,7 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 - **Stale review detection** - PRs return to "Needs My Review" when new commits land after your review
 - **New comment indicators** - Blue count of comments from other people since you last clicked the PR
 - **Notifications** - Banners for review requests, verdicts and new comments on your PRs; clicking opens the PR
-- **Jira integration** - Cmd-click a PR with a ticket reference to open Jira
+- **Jira and links** - Hold ⌘ to open a PR's Jira ticket, or ⌥ to copy its link; the row changes to say what a click will do
 - **Draft filtering** - Other people's drafts are hidden; yours still show
 - **Recently merged** - Submenu of your last 10 merged PRs, for getting back to their links
 
@@ -63,7 +63,7 @@ Roast can add a **Start review** button to review-request banners. It's iTerm on
 defaults write com.toby.roast roast.reviewCommand -string "cd ~/Projects && claude -n 'review {repo}#{number}' '/review {url}'"
 ```
 
-Quit and reopen Roast. You can also Option-click a PR in the menu to start a review. To turn the button off, run `defaults delete com.toby.roast roast.reviewCommand`. The first click asks to let Roast control iTerm2, and asks again after each rebuild. Hover over a banner to see the button, or set Roast's notifications to **Alerts** to keep it showing.
+Quit and reopen Roast. To turn the button off, run `defaults delete com.toby.roast roast.reviewCommand`. The first click asks to let Roast control iTerm2, and asks again after each rebuild. Hover over a banner to see the button, or set Roast's notifications to **Alerts** to keep it showing.
 
 ## Tests
 

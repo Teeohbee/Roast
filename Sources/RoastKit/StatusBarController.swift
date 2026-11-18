@@ -23,9 +23,9 @@ public final class StatusBarController: NSObject {
         rebuildMenu()
     }
 
-    public func update(categorised: CategorisedPRs, merged: [MergedPullRequest], badgeCount: Int, prStore: PRStore) {
+    public func update(categorised: CategorisedPRs, merged: [MergedPullRequest]?, badgeCount: Int, prStore: PRStore) {
         self.categorised = categorised
-        self.merged = merged
+        if let merged { self.merged = merged }
         self.badgeCount = badgeCount
         self.prStore = prStore
         self.errorState = false

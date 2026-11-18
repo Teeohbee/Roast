@@ -17,10 +17,10 @@ public final class PRStore {
     }
 
     @discardableResult
-    public func categorise(_ prs: [PullRequest], teamMembers: [String] = []) -> CategorisedPRs {
+    public func categorise(_ prs: [PullRequest], teammates: [String] = []) -> CategorisedPRs {
         previousCategorised = categorised
         pollCount += 1
-        let teamMemberSet = Set(teamMembers)
+        let teammateSet = Set(teammates)
 
         var myPRs: [PullRequest] = []
         var needsMyReview: [PullRequest] = []
@@ -38,13 +38,13 @@ public final class PRStore {
 
             let verdict = pr.latestVerdictByUser[currentUser]
             let hasReviewed = verdict == .approved || verdict == .changesRequested
-            let isRequested = isReviewRequestedForMe(pr)
-            let needsReview = isRequested || teamMemberSet.contains(pr.author)
+            let isReviewRequest = hasReviewRequest(pr)
+            let needsReview = isReviewRequest || teammateSet.contains(pr.author)
             let isStale = pr.isReviewStale(for: currentUser)
 
             if needsReview && (!hasReviewed || isStale) {
                 needsMyReview.append(pr)
-                reviewReasons[pr.id] = hasReviewed ? .staleReview : isRequested ? .requested : .teamMemberPR
+                reviewReasons[pr.id] = hasReviewed ? .staleReview : isReviewRequest ? .reviewRequest : .teammatesPR
             }
         }
 
@@ -62,7 +62,7 @@ public final class PRStore {
         preferences.setLastSeenVerdict(pr.overallVerdict, forPR: pr.id)
     }
 
-    public var badgeCount: Int {
+    public var attentionCount: Int {
         let myPRsWithNewComments = categorised.myPRs.filter { newCommentCount(for: $0) > 0 }.count
         return categorised.needsMyReview.count + myPRsWithNewComments
     }
@@ -83,7 +83,7 @@ public final class PRStore {
 
         let previousReviewIDs = Set(previousCategorised.needsMyReview.map(\.id))
         for pr in categorised.needsMyReview where !previousReviewIDs.contains(pr.id) {
-            events.append(.reviewRequested(pr: pr, reason: reviewReasons[pr.id] ?? .requested))
+            events.append(.needsMyReview(pr: pr, reason: reviewReasons[pr.id] ?? .reviewRequest))
         }
 
         let previousMyPRsByID = Dictionary(uniqueKeysWithValues: previousCategorised.myPRs.map { ($0.id, $0) })
@@ -124,7 +124,7 @@ public final class PRStore {
 
     // MARK: - Private
 
-    private func isReviewRequestedForMe(_ pr: PullRequest) -> Bool {
+    private func hasReviewRequest(_ pr: PullRequest) -> Bool {
         if pr.reviewRequestedLogins.contains(currentUser) { return true }
         if pr.bodyMentionsTeam { return true }
         let team = preferences.teamName

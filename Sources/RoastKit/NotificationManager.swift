@@ -10,7 +10,7 @@ public struct PRNotification: Equatable, Sendable {
     public let body: String
     public let threadID: String
     public let actor: String
-    public let isReviewRequest: Bool
+    public let isNeedsMyReview: Bool
 }
 
 @MainActor
@@ -78,7 +78,7 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
                     "repo": notification.subtitle,
                     "number": notification.number,
                 ]
-                if notification.isReviewRequest && !preferences.reviewCommand.isEmpty {
+                if notification.isNeedsMyReview && !preferences.reviewCommand.isEmpty {
                     content.categoryIdentifier = Self.reviewCategory
                 }
                 if let avatar = await Self.avatarAttachment(for: notification.actor) {
@@ -122,14 +122,14 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         let actor: String
 
         switch event {
-        case .reviewRequested(let requested, let reason):
-            pr = requested
+        case .needsMyReview(let reviewPR, let reason):
+            pr = reviewPR
             actor = pr.author
             switch reason {
-            case .requested:
+            case .reviewRequest:
                 title = "Review requested"
                 body = "\(pr.author) wants your review on \"\(pr.title)\""
-            case .teamMemberPR:
+            case .teammatesPR:
                 title = "New PR from \(pr.author)"
                 body = "\"\(pr.title)\""
             case .staleReview:
@@ -154,10 +154,10 @@ public final class NotificationManager: NSObject, UNUserNotificationCenterDelega
         }
 
         let suffix = extraComments > 0 ? " (+\(extraComments) comment\(extraComments == 1 ? "" : "s"))" : ""
-        let isReviewRequest = if case .reviewRequested = event { true } else { false }
+        let isNeedsMyReview = if case .needsMyReview = event { true } else { false }
         return PRNotification(
             prID: pr.id, url: pr.url, number: pr.number, title: title, subtitle: pr.repoName, body: body + suffix,
-            threadID: pr.repoName, actor: actor, isReviewRequest: isReviewRequest
+            threadID: pr.repoName, actor: actor, isNeedsMyReview: isNeedsMyReview
         )
     }
 

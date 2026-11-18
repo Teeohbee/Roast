@@ -53,7 +53,7 @@ public final class GitHubClient: @unchecked Sendable {
 
     // MARK: - PR Search
 
-    public func fetchPRs(org: String, team: String, members: [String]) async throws -> [PullRequest] {
+    public func fetchPRs(org: String, team: String, teammates: [String]) async throws -> [PullRequest] {
         let fragment = """
         ... on PullRequest {
           id
@@ -96,10 +96,10 @@ public final class GitHubClient: @unchecked Sendable {
 
         var aliases: [(name: String, searchQuery: String, isBodyMention: Bool)] = []
 
-        for (i, member) in members.enumerated() {
+        for (i, teammate) in teammates.enumerated() {
             aliases.append((
                 name: "author\(i)",
-                searchQuery: "type:pr state:open author:\(member) org:\(org)",
+                searchQuery: "type:pr state:open author:\(teammate) org:\(org)",
                 isBodyMention: false
             ))
         }

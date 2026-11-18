@@ -96,31 +96,31 @@ enum PRStoreTests {
             }
         }
 
-        suite("PRStore needsMyReview - team member authored") {
-            test("PR authored by team member goes to needsMyReview") {
+        suite("PRStore needsMyReview - Teammate authored") {
+            test("PR authored by Teammate goes to needsMyReview") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(author: "alice")
-                let result = store.categorise([pr], teamMembers: ["alice", "bob", "carol"])
+                let result = store.categorise([pr], teammates: ["alice", "bob", "carol"])
                 try expect(result.needsMyReview.count, 1)
             }
 
-            test("PR authored by team member excluded if approved") {
+            test("PR authored by Teammate excluded if approved") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(
                     author: "alice",
                     latestReviews: [Review(author: "bob", verdict: .approved)]
                 )
-                let result = store.categorise([pr], teamMembers: ["alice", "bob"])
+                let result = store.categorise([pr], teammates: ["alice", "bob"])
                 try expect(result.needsMyReview.count, 0)
             }
 
-            test("PR authored by non-team-member without review request excluded") {
+            test("PR authored by non-Teammate without review request excluded") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(author: "stranger")
-                let result = store.categorise([pr], teamMembers: ["alice", "bob"])
+                let result = store.categorise([pr], teammates: ["alice", "bob"])
                 try expect(result.needsMyReview.count, 0)
             }
         }
@@ -226,24 +226,24 @@ enum PRStoreTests {
             }
         }
 
-        suite("PRStore badgeCount") {
-            test("badgeCount includes needsMyReview count") {
+        suite("PRStore attentionCount") {
+            test("attentionCount includes needsMyReview count") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr1 = ModelsTests.makePR(id: "PR_1", author: "alice", reviewRequestedLogins: ["bob"])
                 let pr2 = ModelsTests.makePR(id: "PR_2", author: "alice", reviewRequestedLogins: ["bob"])
                 _ = store.categorise([pr1, pr2])
-                try expect(store.badgeCount >= 2, "expected badge count to include needsMyReview")
+                try expect(store.attentionCount >= 2, "expected Attention Count to include needsMyReview")
             }
 
-            test("badgeCount includes myPRs with new comments") {
+            test("attentionCount includes myPRs with new comments") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 2)
                 _ = store.categorise([pr])
                 let prUpdated = ModelsTests.makePR(id: "PR_1", author: "bob", commentCount: 5)
                 _ = store.categorise([prUpdated])
-                try expect(store.badgeCount >= 1, "expected badge count to include myPRs with new comments")
+                try expect(store.attentionCount >= 1, "expected Attention Count to include myPRs with new comments")
             }
         }
 
@@ -310,16 +310,16 @@ enum PRStoreTests {
                 _ = store.categorise([pr])
                 let events = store.detectChanges()
                 try expect(events.count, 1)
-                try expect(events[0] == .reviewRequested(pr: pr, reason: .requested), "expected reviewRequested event")
+                try expect(events[0] == .needsMyReview(pr: pr, reason: .reviewRequest), "expected needsMyReview event")
             }
 
-            test("team member PR with no request has teamMemberPR reason") {
+            test("Teammate PR with no request has teammatesPR reason") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(author: "alice")
-                _ = store.categorise([], teamMembers: ["alice"])
-                _ = store.categorise([pr], teamMembers: ["alice"])
-                try expect(store.detectChanges() == [.reviewRequested(pr: pr, reason: .teamMemberPR)], "expected teamMemberPR reason")
+                _ = store.categorise([], teammates: ["alice"])
+                _ = store.categorise([pr], teammates: ["alice"])
+                try expect(store.detectChanges() == [.needsMyReview(pr: pr, reason: .teammatesPR)], "expected teammatesPR reason")
             }
 
             test("new commits after my review has staleReview reason, even when requested") {
@@ -331,16 +331,16 @@ enum PRStoreTests {
                 let after = ModelsTests.makePR(author: "alice", reviewRequestedLogins: ["bob"], latestReviews: reviewed, lastCommitDate: reviewedAt.addingTimeInterval(60))
                 _ = store.categorise([before])
                 _ = store.categorise([after])
-                try expect(store.detectChanges() == [.reviewRequested(pr: after, reason: .staleReview)], "expected staleReview reason")
+                try expect(store.detectChanges() == [.needsMyReview(pr: after, reason: .staleReview)], "expected staleReview reason")
             }
 
-            test("requested beats team member") {
+            test("Review Request beats Teammate's PR") {
                 let prefs = freshPreferences()
                 let store = PRStore(preferences: prefs, currentUser: "bob")
                 let pr = ModelsTests.makePR(author: "alice", reviewRequestedTeams: ["myteam"])
-                _ = store.categorise([], teamMembers: ["alice"])
-                _ = store.categorise([pr], teamMembers: ["alice"])
-                try expect(store.detectChanges() == [.reviewRequested(pr: pr, reason: .requested)], "expected requested reason")
+                _ = store.categorise([], teammates: ["alice"])
+                _ = store.categorise([pr], teammates: ["alice"])
+                try expect(store.detectChanges() == [.needsMyReview(pr: pr, reason: .reviewRequest)], "expected reviewRequest reason")
             }
 
             test("no event when review request already existed") {
@@ -351,10 +351,10 @@ enum PRStoreTests {
                 _ = store.categorise([pr])
                 let events = store.detectChanges()
                 let reviewEvents = events.filter {
-                    if case .reviewRequested = $0 { return true }
+                    if case .needsMyReview = $0 { return true }
                     return false
                 }
-                try expect(reviewEvents.isEmpty, "expected no reviewRequested events for existing request")
+                try expect(reviewEvents.isEmpty, "expected no needsMyReview events for existing request")
             }
         }
 

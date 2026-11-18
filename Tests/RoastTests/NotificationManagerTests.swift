@@ -6,7 +6,7 @@ enum NotificationManagerTests {
         suite("NotificationManager text") {
             test("stale review says new commits") {
                 let pr = ModelsTests.makePR(title: "Add widget", author: "alice", repoName: "chopin")
-                let n = NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .staleReview))
+                let n = NotificationManager.notification(for: .needsMyReview(pr: pr, reason: .staleReview))
                 try expect(n.title, "New commits since your review")
                 try expect(n.subtitle, "chopin")
                 try expect(n.body, "alice updated \"Add widget\"")
@@ -17,9 +17,9 @@ enum NotificationManagerTests {
                 try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).threadID, "chopin")
             }
 
-            test("team member PR names the author") {
+            test("Teammate PR names the author") {
                 let pr = ModelsTests.makePR(author: "alice")
-                try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .teamMemberPR)).title, "New PR from alice")
+                try expect(NotificationManager.notification(for: .needsMyReview(pr: pr, reason: .teammatesPR)).title, "New PR from alice")
             }
 
             test("extra comments are appended") {
@@ -29,31 +29,31 @@ enum NotificationManagerTests {
             }
         }
 
-        suite("NotificationManager review requests") {
-            test("every review request reason is a review request") {
+        suite("NotificationManager Needs My Review") {
+            test("every Needs My Review reason is flagged") {
                 let pr = ModelsTests.makePR()
-                for reason in [ReviewReason.requested, .teamMemberPR, .staleReview] {
-                    try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: reason)).isReviewRequest, true)
+                for reason in [ReviewReason.reviewRequest, .teammatesPR, .staleReview] {
+                    try expect(NotificationManager.notification(for: .needsMyReview(pr: pr, reason: reason)).isNeedsMyReview, true)
                 }
             }
 
-            test("verdicts and comments are not review requests") {
+            test("Verdicts and comments are not flagged") {
                 let pr = ModelsTests.makePR()
-                try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).isReviewRequest, false)
-                try expect(NotificationManager.notification(for: .changesRequested(pr: pr, reviewer: "carol")).isReviewRequest, false)
-                try expect(NotificationManager.notification(for: .newComments(pr: pr, count: 1, by: "dave")).isReviewRequest, false)
+                try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).isNeedsMyReview, false)
+                try expect(NotificationManager.notification(for: .changesRequested(pr: pr, reviewer: "carol")).isNeedsMyReview, false)
+                try expect(NotificationManager.notification(for: .newComments(pr: pr, count: 1, by: "dave")).isNeedsMyReview, false)
             }
 
             test("carries the PR number") {
                 let pr = ModelsTests.makePR(number: 811)
-                try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .requested)).number, 811)
+                try expect(NotificationManager.notification(for: .needsMyReview(pr: pr, reason: .reviewRequest)).number, 811)
             }
         }
 
         suite("NotificationManager avatar") {
             test("avatar is whoever acted") {
                 let pr = ModelsTests.makePR(author: "alice")
-                try expect(NotificationManager.notification(for: .reviewRequested(pr: pr, reason: .requested)).actor, "alice")
+                try expect(NotificationManager.notification(for: .needsMyReview(pr: pr, reason: .reviewRequest)).actor, "alice")
                 try expect(NotificationManager.notification(for: .approved(pr: pr, reviewer: "carol")).actor, "carol")
                 try expect(NotificationManager.notification(for: .newComments(pr: pr, count: 1, by: "dave")).actor, "dave")
             }
@@ -92,7 +92,7 @@ enum NotificationManagerTests {
                 let first = ModelsTests.makePR(id: "PR_1")
                 let second = ModelsTests.makePR(id: "PR_2")
                 let result = NotificationManager.notifications(for: [
-                    .reviewRequested(pr: second, reason: .requested),
+                    .needsMyReview(pr: second, reason: .reviewRequest),
                     .approved(pr: first, reviewer: "carol"),
                 ])
                 try expect(result.map(\.prID), ["PR_2", "PR_1"])

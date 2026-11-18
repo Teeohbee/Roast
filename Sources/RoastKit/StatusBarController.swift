@@ -5,7 +5,7 @@ public final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private var categorised: CategorisedPRs = .empty
     private var merged: [MergedPullRequest] = []
-    private var badgeCount: Int = 0
+    private var attentionCount: Int = 0
     private var errorState: Bool = false
     private var prStore: PRStore?
 
@@ -23,10 +23,10 @@ public final class StatusBarController: NSObject {
         rebuildMenu()
     }
 
-    public func update(categorised: CategorisedPRs, merged: [MergedPullRequest]?, badgeCount: Int, prStore: PRStore) {
+    public func update(categorised: CategorisedPRs, merged: [MergedPullRequest]?, attentionCount: Int, prStore: PRStore) {
         self.categorised = categorised
         if let merged { self.merged = merged }
-        self.badgeCount = badgeCount
+        self.attentionCount = attentionCount
         self.prStore = prStore
         self.errorState = false
         let formatter = DateFormatter()
@@ -36,8 +36,8 @@ public final class StatusBarController: NSObject {
         rebuildMenu()
     }
 
-    public func refresh(badgeCount: Int) {
-        self.badgeCount = badgeCount
+    public func refresh(attentionCount: Int) {
+        self.attentionCount = attentionCount
         updateIcon()
         rebuildMenu()
     }
@@ -55,7 +55,7 @@ public final class StatusBarController: NSObject {
         let symbolName: String
         if errorState {
             symbolName = "flame"
-        } else if badgeCount > 0 {
+        } else if attentionCount > 0 {
             symbolName = "flame.fill"
         } else {
             symbolName = "flame"
@@ -69,8 +69,8 @@ public final class StatusBarController: NSObject {
 
         if errorState {
             statusItem.button?.title = " !"
-        } else if badgeCount > 0 {
-            statusItem.button?.title = " \(badgeCount)"
+        } else if attentionCount > 0 {
+            statusItem.button?.title = " \(attentionCount)"
         } else {
             statusItem.button?.title = ""
         }
@@ -78,8 +78,8 @@ public final class StatusBarController: NSObject {
         let label: String
         if errorState {
             label = "Roast - error"
-        } else if badgeCount > 0 {
-            label = "Roast - \(badgeCount) items need attention"
+        } else if attentionCount > 0 {
+            label = "Roast - \(attentionCount) items need attention"
         } else {
             label = "Roast - no items"
         }

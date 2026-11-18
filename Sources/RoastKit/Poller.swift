@@ -8,7 +8,7 @@ public final class Poller {
     private let notifications: NotificationManager
     private var prStore: PRStore?
     private var gitHubClient: GitHubClient?
-    private var cachedMembers: [String] = []
+    private var cachedTeammates: [String] = []
     private var lastMemberFetch: Date = .distantPast
     private var timer: Timer?
 
@@ -54,17 +54,17 @@ public final class Poller {
                 }
 
                 if Date().timeIntervalSince(lastMemberFetch) > 3600 {
-                    cachedMembers = try await client.fetchTeamMembers(org: org, team: teamName)
+                    cachedTeammates = try await client.fetchTeamMembers(org: org, team: teamName)
                     lastMemberFetch = Date()
                 }
 
                 async let merged = client.fetchMergedPRs(org: org)
-                let prs = try await client.fetchPRs(org: org, team: teamName, members: cachedMembers)
+                let prs = try await client.fetchPRs(org: org, team: teamName, teammates: cachedTeammates)
                 let store = prStore!
-                let categorised = store.categorise(prs, teamMembers: cachedMembers)
+                let categorised = store.categorise(prs, teammates: cachedTeammates)
                 let events = store.detectChanges()
 
-                statusBar.update(categorised: categorised, merged: try? await merged, badgeCount: store.badgeCount, prStore: store)
+                statusBar.update(categorised: categorised, merged: try? await merged, attentionCount: store.attentionCount, prStore: store)
                 notifications.deliver(events)
             } catch let error as GitHubError {
                 switch error {
@@ -96,14 +96,14 @@ public final class Poller {
     public func resetClient() {
         gitHubClient = nil
         prStore = nil
-        cachedMembers = []
+        cachedTeammates = []
         lastMemberFetch = .distantPast
     }
 
     public func markSeen(_ pr: PullRequest) {
         guard let store = prStore else { return }
         store.markSeen(pr)
-        statusBar.refresh(badgeCount: store.badgeCount)
+        statusBar.refresh(attentionCount: store.attentionCount)
     }
 
     public func markSeen(prID: String) {

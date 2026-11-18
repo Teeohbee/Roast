@@ -155,7 +155,7 @@ public final class StatusBarController: NSObject {
             item.keyEquivalentModifierMask = []
             menu.addItem(item)
             if let ticket = pr.jiraTicket {
-                addAlternate(to: menu, row: row, action: "Open \(ticket) in Jira", modifier: .command, selector: #selector(jiraClicked(_:)), object: pr)
+                addAlternate(to: menu, row: row, action: "Open \(ticket) in Jira", modifier: .command, selector: #selector(jiraClicked(_:)), object: pr.jiraURL)
             }
             addAlternate(to: menu, row: row, action: "Copy link", modifier: .option, selector: #selector(copyLinkClicked(_:)), object: pr.url)
         }
@@ -323,12 +323,8 @@ public final class StatusBarController: NSObject {
     }
 
     @objc private func jiraClicked(_ sender: NSMenuItem) {
-        if let pr = sender.representedObject as? PullRequest, let url = pr.jiraURL {
-            NSWorkspace.shared.open(url)
-            onPRClicked?(pr)
-        } else if let url = sender.representedObject as? URL {
-            NSWorkspace.shared.open(url)
-        }
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func mergedClicked(_ sender: NSMenuItem) {

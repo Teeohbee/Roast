@@ -4,6 +4,7 @@ import AppKit
 public final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private var categorised: CategorisedPRs = .empty
+    private var merged: [MergedPullRequest] = []
     private var badgeCount: Int = 0
     private var errorState: Bool = false
     private var prStore: PRStore?
@@ -23,8 +24,9 @@ public final class StatusBarController: NSObject {
         rebuildMenu()
     }
 
-    public func update(categorised: CategorisedPRs, badgeCount: Int, prStore: PRStore) {
+    public func update(categorised: CategorisedPRs, merged: [MergedPullRequest], badgeCount: Int, prStore: PRStore) {
         self.categorised = categorised
+        self.merged = merged
         self.badgeCount = badgeCount
         self.prStore = prStore
         self.errorState = false
@@ -100,6 +102,13 @@ public final class StatusBarController: NSObject {
             menu.addItem(emptyItem)
         }
 
+        if !merged.isEmpty {
+            menu.addItem(.separator())
+            let mergedItem = NSMenuItem(title: "Recently Merged", action: nil, keyEquivalent: "")
+            mergedItem.submenu = mergedMenu()
+            menu.addItem(mergedItem)
+        }
+
         menu.addItem(.separator())
 
         let statusItem = NSMenuItem(title: statusText, action: nil, keyEquivalent: "")
@@ -147,6 +156,29 @@ public final class StatusBarController: NSObject {
         }
 
         menu.addItem(.separator())
+    }
+
+    private func mergedMenu() -> NSMenu {
+        let menu = NSMenu()
+        for pr in merged {
+            let item = NSMenuItem()
+            let title = NSMutableAttributedString(string: pr.title, attributes: [
+                .font: Self.titleFont,
+                .foregroundColor: NSColor.labelColor,
+            ])
+            title.append(NSAttributedString(string: "\n"))
+            title.append(sub(pr.repoName))
+            title.append(sep())
+            title.append(sub("#\(pr.number)"))
+            title.append(sep())
+            title.append(sub("merged \(pr.relativeAge) ago"))
+            item.attributedTitle = title
+            item.action = #selector(mergedClicked(_:))
+            item.target = self
+            item.representedObject = pr
+            menu.addItem(item)
+        }
+        return menu
     }
 
     // MARK: - Attributed Titles
@@ -270,6 +302,15 @@ public final class StatusBarController: NSObject {
             NSWorkspace.shared.open(pr.url)
         }
         onPRClicked?(pr)
+    }
+
+    @objc private func mergedClicked(_ sender: NSMenuItem) {
+        guard let pr = sender.representedObject as? MergedPullRequest else { return }
+        if NSEvent.modifierFlags.contains(.command), let jiraURL = pr.jiraURL {
+            NSWorkspace.shared.open(jiraURL)
+        } else {
+            NSWorkspace.shared.open(pr.url)
+        }
     }
 
     @objc private func refreshClicked() {

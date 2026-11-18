@@ -20,6 +20,7 @@ A native macOS menubar app that shows GitHub PRs requiring your attention, scope
 - **Notifications** - Banners for review requests, verdicts and new comments on your PRs; clicking opens the PR
 - **Jira integration** - Cmd-click a PR with a ticket reference to open Jira
 - **Draft filtering** - Other people's drafts are hidden; yours still show
+- **Recently merged** - Submenu of your last 10 merged PRs, for getting back to their links
 
 | Menu bar | State |
 |------|-------|

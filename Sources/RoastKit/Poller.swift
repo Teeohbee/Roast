@@ -58,12 +58,13 @@ public final class Poller {
                     lastMemberFetch = Date()
                 }
 
+                async let merged = client.fetchMergedPRs(org: org)
                 let prs = try await client.fetchPRs(org: org, team: teamName, members: cachedMembers)
                 let store = prStore!
                 let categorised = store.categorise(prs, teamMembers: cachedMembers)
                 let events = store.detectChanges()
 
-                statusBar.update(categorised: categorised, badgeCount: store.badgeCount, prStore: store)
+                statusBar.update(categorised: categorised, merged: try await merged, badgeCount: store.badgeCount, prStore: store)
                 notifications.deliver(events)
             } catch let error as GitHubError {
                 switch error {

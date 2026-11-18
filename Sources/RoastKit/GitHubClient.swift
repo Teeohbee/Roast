@@ -130,6 +130,41 @@ public final class GitHubClient: @unchecked Sendable {
         return try parsePRResponse(data: data, aliases: aliases)
     }
 
+    // MARK: - Recently Merged
+
+    public func fetchMergedPRs(org: String, limit: Int = 10) async throws -> [MergedPullRequest] {
+        // Search can't sort by merge time, so over-fetch by update time and sort locally
+        let query = """
+        { merged: search(query: "type:pr is:merged author:@me org:\(org) sort:updated-desc", type: ISSUE, first: 30) {
+            nodes { ... on PullRequest { number title url mergedAt repository { name } } } } }
+        """
+        let body = try JSONSerialization.data(withJSONObject: ["query": query])
+        return try parseMergedPRs(data: try await graphQL(bodyData: body), limit: limit)
+    }
+
+    func parseMergedPRs(data: Data, limit: Int) throws -> [MergedPullRequest] {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GitHubError.invalidResponse
+        }
+        if let errors = json["errors"] as? [[String: Any]] {
+            throw GitHubError.graphQLErrors(errors.compactMap { $0["message"] as? String })
+        }
+        guard let nodes = ((json["data"] as? [String: Any])?["merged"] as? [String: Any])?["nodes"] as? [[String: Any]] else {
+            throw GitHubError.invalidResponse
+        }
+        let prs = nodes.compactMap { node -> MergedPullRequest? in
+            guard let number = node["number"] as? Int,
+                  let title = node["title"] as? String,
+                  let url = (node["url"] as? String).flatMap(URL.init(string:)),
+                  let mergedAt = (node["mergedAt"] as? String).flatMap({ ISO8601DateFormatter().date(from: $0) }),
+                  let repoName = (node["repository"] as? [String: Any])?["name"] as? String else {
+                return nil
+            }
+            return MergedPullRequest(number: number, title: title, repoName: repoName, url: url, mergedAt: mergedAt)
+        }
+        return Array(prs.sorted { $0.mergedAt > $1.mergedAt }.prefix(limit))
+    }
+
     // MARK: - Response Parsing
 
     private func parsePRResponse(data: Data, aliases: [(name: String, searchQuery: String, isBodyMention: Bool)]) throws -> [PullRequest] {

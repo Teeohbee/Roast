@@ -91,27 +91,15 @@ public struct PullRequest: Sendable {
     }
 
     public var jiraTicket: String? {
-        let pattern = /[A-Z]+-\d+/
-        return title.firstMatch(of: pattern).map { String($0.output) }
+        RoastKit.jiraTicket(in: title)
     }
 
     public var jiraURL: URL? {
-        guard let ticket = jiraTicket else { return nil }
-        return URL(string: "https://simplybusiness.atlassian.net/browse/\(ticket)")
+        RoastKit.jiraURL(in: title)
     }
 
     public var relativeAge: String {
-        let seconds = Int(Date().timeIntervalSince(createdAt))
-        let minutes = seconds / 60
-        let hours = minutes / 60
-        let days = hours / 24
-        if days >= 1 {
-            return "\(days)d"
-        } else if hours >= 1 {
-            return "\(hours)h"
-        } else {
-            return "\(max(minutes, 0))m"
-        }
+        RoastKit.relativeAge(since: createdAt)
     }
 
     /// Last review verdict per reviewer (final entry in latestReviews wins).
@@ -139,6 +127,46 @@ extension PullRequest: Equatable {
 extension PullRequest: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+public struct MergedPullRequest: Equatable, Sendable {
+    public let number: Int
+    public let title: String
+    public let repoName: String
+    public let url: URL
+    public let mergedAt: Date
+
+    public var jiraURL: URL? {
+        RoastKit.jiraURL(in: title)
+    }
+
+    public var relativeAge: String {
+        RoastKit.relativeAge(since: mergedAt)
+    }
+}
+
+func jiraTicket(in title: String) -> String? {
+    let pattern = /[A-Z]+-\d+/
+    return title.firstMatch(of: pattern).map { String($0.output) }
+}
+
+func jiraURL(in title: String) -> URL? {
+    guard let ticket = jiraTicket(in: title) else { return nil }
+    return URL(string: "https://simplybusiness.atlassian.net/browse/\(ticket)")
+}
+
+func relativeAge(since date: Date) -> String {
+    let seconds = Int(Date().timeIntervalSince(date))
+    let minutes = seconds / 60
+    let hours = minutes / 60
+    let days = hours / 24
+    if days >= 1 {
+        return "\(days)d"
+    } else if hours >= 1 {
+        return "\(hours)h"
+    } else {
+        return "\(max(minutes, 0))m"
     }
 }
 

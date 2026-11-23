@@ -118,18 +118,20 @@ public final class GitHubClient: @unchecked Sendable {
             isBodyMention: true
         ))
 
-        let aliasQueries = aliases.map { alias in
-            "\(alias.name): search(query: \"\(alias.searchQuery)\", type: ISSUE, first: 50) { nodes { \(fragment) } }"
-        }.joined(separator: "\n")
+        let responses = try await withThrowingTaskGroup(of: Data.self) { group in
+            for alias in aliases {
+                let query = "{ \(alias.name): search(query: \"\(alias.searchQuery)\", type: ISSUE, first: 50) { nodes { \(fragment) } } }"
+                let body = try JSONSerialization.data(withJSONObject: ["query": query])
+                group.addTask { try await self.graphQL(bodyData: body) }
+            }
+            return try await group.reduce(into: [Data]()) { $0.append($1) }
+        }
 
-        let fullQuery = "{ \(aliasQueries) }"
-        let body = try JSONSerialization.data(
-            withJSONObject: ["query": fullQuery],
-            options: []
-        )
-
-        let data = try await graphQL(bodyData: body)
-        return try parsePRResponse(data: data, aliases: aliases)
+        var searchResults: [String: Any] = [:]
+        for data in responses {
+            searchResults.merge(try parseSearchResults(data: data)) { $1 }
+        }
+        return parsePRs(searchResults: searchResults, aliases: aliases)
     }
 
     // MARK: - Recently Merged
@@ -169,7 +171,7 @@ public final class GitHubClient: @unchecked Sendable {
 
     // MARK: - Response Parsing
 
-    private func parsePRResponse(data: Data, aliases: [(name: String, searchQuery: String, isBodyMention: Bool)]) throws -> [PullRequest] {
+    private func parseSearchResults(data: Data) throws -> [String: Any] {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw GitHubError.invalidResponse
         }
@@ -182,7 +184,10 @@ public final class GitHubClient: @unchecked Sendable {
         guard let dataDict = json["data"] as? [String: Any] else {
             throw GitHubError.invalidResponse
         }
+        return dataDict
+    }
 
+    private func parsePRs(searchResults dataDict: [String: Any], aliases: [(name: String, searchQuery: String, isBodyMention: Bool)]) -> [PullRequest] {
         let bodyMentionAliases = Set(aliases.filter(\.isBodyMention).map(\.name))
         var prsById: [String: PullRequest] = [:]
 

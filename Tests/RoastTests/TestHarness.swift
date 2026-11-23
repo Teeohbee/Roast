@@ -6,6 +6,20 @@ struct TestFailure: Error, CustomStringConvertible {
 
 nonisolated(unsafe) var totalTests = 0
 nonisolated(unsafe) var failedTests = 0
+nonisolated(unsafe) private var testDefaultsSuites: [String] = []
+
+func makeTestDefaults() -> UserDefaults {
+    let suiteName = "com.roast.test.\(testDefaultsSuites.count)"
+    testDefaultsSuites.append(suiteName)
+    return UserDefaults(suiteName: suiteName)!
+}
+
+private func removeTestDefaults() {
+    for suiteName in testDefaultsSuites {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+    }
+    testDefaultsSuites.removeAll()
+}
 
 func suite(_ name: String, _ body: () -> Void) {
     print("\n\(name)")
@@ -14,6 +28,7 @@ func suite(_ name: String, _ body: () -> Void) {
 
 func test(_ name: String, _ body: () throws -> Void) {
     totalTests += 1
+    defer { removeTestDefaults() }
     do {
         try body()
         print("  ✓ \(name)")

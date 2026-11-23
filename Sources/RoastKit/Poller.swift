@@ -1,5 +1,6 @@
 // ~/Projects/Roast/Sources/RoastKit/Poller.swift
 import Foundation
+import os
 
 @MainActor
 public final class Poller {
@@ -66,19 +67,10 @@ public final class Poller {
 
                 statusBar.update(categorised: categorised, merged: try? await merged, attentionCount: store.attentionCount, prStore: store)
                 notifications.deliver(events)
-            } catch let error as GitHubError {
-                switch error {
-                case .httpError(401, _):
-                    statusBar.showError("Authentication failed - check token")
-                case .httpError(let code, _):
-                    statusBar.showError("GitHub API error (\(code))")
-                case .graphQLErrors(let messages):
-                    statusBar.showError(messages.first ?? "GraphQL error")
-                default:
-                    statusBar.showError("Failed to fetch PRs")
-                }
             } catch {
-                statusBar.showError("Network error")
+                let failure = PollFailure(error)
+                Logger.poller.error("Poll failed: \(failure.logDetail, privacy: .public)")
+                statusBar.showError(failure.menuMessage)
             }
         }
     }

@@ -8,5 +8,6 @@ GitHubClientTests.run()
 NotificationManagerTests.run()
 ReviewCommandTests.run()
 MergedPRTests.run()
+PollFailureTests.run()
 
 reportResults()

@@ -17,7 +17,9 @@ enum ModelsTests {
         commentCount: Int = 0,
         commentCountsByAuthor: [String: Int]? = nil,
         isDraft: Bool = false,
-        lastCommitDate: Date? = nil
+        lastCommitDate: Date? = nil,
+        reviewDecision: ReviewDecision? = nil,
+        isMergeable: Bool = false
     ) -> PullRequest {
         PullRequest(
             id: id,
@@ -33,7 +35,9 @@ enum ModelsTests {
             latestReviews: latestReviews,
             commentCountsByAuthor: commentCountsByAuthor ?? (commentCount > 0 ? ["carol": commentCount] : [:]),
             isDraft: isDraft,
-            lastCommitDate: lastCommitDate
+            lastCommitDate: lastCommitDate,
+            reviewDecision: reviewDecision,
+            isMergeable: isMergeable
         )
     }
 
@@ -149,6 +153,46 @@ enum ModelsTests {
             test("pending when no reviews") {
                 let pr = makePR(latestReviews: [])
                 try expect(pr.overallVerdict, .pending)
+            }
+        }
+
+        suite("mergeReadiness") {
+            let approval = [Review(author: "bob", verdict: .approved)]
+
+            test("Ready to Merge when GitHub approves and the PR can merge") {
+                let pr = makePR(latestReviews: approval, reviewDecision: .approved, isMergeable: true)
+                try expect(pr.mergeReadiness, .readyToMerge)
+            }
+
+            test("approved but blocked, e.g. by required checks") {
+                let pr = makePR(latestReviews: approval, reviewDecision: .approved, isMergeable: false)
+                try expect(pr.mergeReadiness, .approved)
+            }
+
+            test("approved but a required review is still missing, e.g. a code owner") {
+                let pr = makePR(latestReviews: approval, reviewDecision: .reviewRequired, isMergeable: false)
+                try expect(pr.mergeReadiness, .reviewRequired)
+            }
+
+            test("Pending when a review is required and nobody has approved") {
+                let pr = makePR(reviewDecision: .reviewRequired)
+                try expect(pr.mergeReadiness, .pending)
+            }
+
+            test("Ready to Merge on an approved PR in a repo that requires no reviews") {
+                let pr = makePR(latestReviews: approval, reviewDecision: nil, isMergeable: true)
+                try expect(pr.mergeReadiness, .readyToMerge)
+            }
+
+            test("Pending without approval even when the repo would let it merge") {
+                let pr = makePR(reviewDecision: nil, isMergeable: true)
+                try expect(pr.mergeReadiness, .pending)
+            }
+
+            test("Changes Requested wins") {
+                let reviews = approval + [Review(author: "carol", verdict: .changesRequested)]
+                let pr = makePR(latestReviews: reviews, reviewDecision: .changesRequested)
+                try expect(pr.mergeReadiness, .changesRequested)
             }
         }
     }

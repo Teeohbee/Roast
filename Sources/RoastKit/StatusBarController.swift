@@ -296,11 +296,12 @@ public final class StatusBarController: NSObject {
         result.append(sep())
         result.append(sub("#\(pr.number)"))
         result.append(sep())
-        switch pr.overallVerdict {
+        switch pr.mergeReadiness {
+        case .readyToMerge: result.append(coloured("\u{2713} Ready to merge", .systemGreen))
         case .approved: result.append(coloured("\u{2713} Approved", .systemGreen))
+        case .reviewRequired: result.append(coloured("\u{2713} Approved \u{00b7} review required", .systemOrange))
         case .changesRequested: result.append(coloured("\u{2717} Changes requested", .systemRed))
         case .pending: result.append(sub("Pending review"))
-        case .commented: result.append(sub("Commented"))
         }
         result.append(sep())
         result.append(sub(pr.relativeAge))

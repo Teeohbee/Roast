@@ -22,6 +22,14 @@ public enum ReviewDecision: String, Equatable, Sendable {
     case reviewRequired = "REVIEW_REQUIRED"
 }
 
+public enum MergeReadiness: Equatable, Sendable {
+    case readyToMerge
+    case approved
+    case reviewRequired
+    case changesRequested
+    case pending
+}
+
 public struct Review: Equatable, Sendable {
     public let author: String
     public let verdict: ReviewVerdict
@@ -130,6 +138,16 @@ public struct PullRequest: Sendable {
         if verdicts.contains(.changesRequested) { return .changesRequested }
         if verdicts.contains(.approved) { return .approved }
         return .pending
+    }
+
+    public var mergeReadiness: MergeReadiness {
+        switch overallVerdict {
+        case .changesRequested: return .changesRequested
+        case .approved:
+            if reviewDecision == .reviewRequired { return .reviewRequired }
+            return isMergeable ? .readyToMerge : .approved
+        case .pending, .commented: return .pending
+        }
     }
 }
 

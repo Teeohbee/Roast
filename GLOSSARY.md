@@ -44,6 +44,10 @@ _Avoid_: Commented, awaiting review
 Your own open PRs, including drafts.
 _Avoid_: Authored PRs
 
+**Ready to Merge**:
+One of My PRs that GitHub says has every review it requires, including code owners, and that GitHub would let you merge now. Approved means it has an approving Verdict but is still blocked, for example by required checks. Review Required means it has an approving Verdict but GitHub still needs another review, such as from a code owner.
+_Avoid_: Mergeable, good to go
+
 **Seen**:
 When you last opened a PR itself from Roast, from the menu or a notification. Opening its Jira ticket, copying its link or visiting it on GitHub doesn't count.
 _Avoid_: Read, viewed, clicked

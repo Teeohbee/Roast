@@ -10,5 +10,6 @@ ReviewCommandTests.run()
 MergedPRTests.run()
 PollFailureTests.run()
 LogFileTests.run()
+FetchPRsTests.run()
 
 reportResults()

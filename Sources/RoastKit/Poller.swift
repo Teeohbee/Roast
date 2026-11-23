@@ -80,6 +80,7 @@ public final class Poller {
                 let failure = PollFailure(error)
                 if failure.isRetryable && !isRetry {
                     Logger.poller.notice("Poll failed, retrying: \(failure.logDetail, privacy: .public)")
+                    LogFile.roast.append("Poll failed, retrying: \(failure.logDetail)")
                     retry = Task { [retryDelay] in
                         try? await Task.sleep(for: retryDelay)
                         guard !Task.isCancelled else { return }
@@ -88,6 +89,7 @@ public final class Poller {
                     return
                 }
                 Logger.poller.error("Poll failed: \(failure.logDetail, privacy: .public)")
+                LogFile.roast.append("Poll failed: \(failure.logDetail)")
                 statusBar.showError(failure.menuMessage)
             }
         }

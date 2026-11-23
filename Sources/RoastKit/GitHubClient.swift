@@ -62,6 +62,8 @@ public final class GitHubClient: @unchecked Sendable {
           url
           createdAt
           isDraft
+          reviewDecision
+          mergeStateStatus
           author { login }
           repository { name isArchived }
           reviewRequests(first: 20) {
@@ -209,7 +211,9 @@ public final class GitHubClient: @unchecked Sendable {
                             commentCountsByAuthor: existing.commentCountsByAuthor,
                             isDraft: existing.isDraft,
                             ciStatus: existing.ciStatus,
-                            lastCommitDate: existing.lastCommitDate
+                            lastCommitDate: existing.lastCommitDate,
+                            reviewDecision: existing.reviewDecision,
+                            isMergeable: existing.isMergeable
                         )
                     }
                 } else {
@@ -279,6 +283,8 @@ public final class GitHubClient: @unchecked Sendable {
             }
         }
         let isDraft = node["isDraft"] as? Bool ?? false
+        let reviewDecision = (node["reviewDecision"] as? String).flatMap(ReviewDecision.init(rawValue:))
+        let isMergeable = ["CLEAN", "HAS_HOOKS", "UNSTABLE"].contains(node["mergeStateStatus"] as? String ?? "")
 
         var ciStatus: CIStatus = .unknown
         var lastCommitDate: Date?
@@ -310,7 +316,9 @@ public final class GitHubClient: @unchecked Sendable {
             commentCountsByAuthor: commentCountsByAuthor,
             isDraft: isDraft,
             ciStatus: ciStatus,
-            lastCommitDate: lastCommitDate
+            lastCommitDate: lastCommitDate,
+            reviewDecision: reviewDecision,
+            isMergeable: isMergeable
         )
     }
 

@@ -44,5 +44,39 @@ enum GitHubClientTests {
                 try expect(pr?.commentCountsByAuthor ?? [:], ["carol": 1])
             }
         }
+
+        suite("GitHubClient parsePRNode merge readiness") {
+            test("reads GitHub's review decision") {
+                var node = prNode(comments: [], reviews: [])
+                node["reviewDecision"] = "REVIEW_REQUIRED"
+                let pr = GitHubClient(token: "unused").parsePRNode(node, bodyMentionsTeam: false)
+                try expect(pr?.reviewDecision, .reviewRequired)
+            }
+
+            test("no review decision when the repo requires no reviews") {
+                var node = prNode(comments: [], reviews: [])
+                node["reviewDecision"] = NSNull()
+                let pr = GitHubClient(token: "unused").parsePRNode(node, bodyMentionsTeam: false)
+                try expect(pr?.reviewDecision, nil)
+            }
+
+            for state in ["CLEAN", "HAS_HOOKS", "UNSTABLE"] {
+                test("mergeable when merge state is \(state)") {
+                    var node = prNode(comments: [], reviews: [])
+                    node["mergeStateStatus"] = state
+                    let pr = GitHubClient(token: "unused").parsePRNode(node, bodyMentionsTeam: false)
+                    try expect(pr?.isMergeable, true)
+                }
+            }
+
+            for state in ["BLOCKED", "BEHIND", "DIRTY", "DRAFT", "UNKNOWN"] {
+                test("not mergeable when merge state is \(state)") {
+                    var node = prNode(comments: [], reviews: [])
+                    node["mergeStateStatus"] = state
+                    let pr = GitHubClient(token: "unused").parsePRNode(node, bodyMentionsTeam: false)
+                    try expect(pr?.isMergeable, false)
+                }
+            }
+        }
     }
 }

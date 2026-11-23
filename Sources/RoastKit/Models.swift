@@ -16,6 +16,12 @@ public enum CIStatus: String, Equatable, Sendable {
     case unknown
 }
 
+public enum ReviewDecision: String, Equatable, Sendable {
+    case approved = "APPROVED"
+    case changesRequested = "CHANGES_REQUESTED"
+    case reviewRequired = "REVIEW_REQUIRED"
+}
+
 public struct Review: Equatable, Sendable {
     public let author: String
     public let verdict: ReviewVerdict
@@ -44,6 +50,8 @@ public struct PullRequest: Sendable {
     public let isDraft: Bool
     public let ciStatus: CIStatus
     public let lastCommitDate: Date?
+    public let reviewDecision: ReviewDecision?
+    public let isMergeable: Bool
 
     public init(
         id: String,
@@ -60,7 +68,9 @@ public struct PullRequest: Sendable {
         commentCountsByAuthor: [String: Int],
         isDraft: Bool = false,
         ciStatus: CIStatus = .unknown,
-        lastCommitDate: Date? = nil
+        lastCommitDate: Date? = nil,
+        reviewDecision: ReviewDecision? = nil,
+        isMergeable: Bool = false
     ) {
         self.id = id
         self.number = number
@@ -77,6 +87,8 @@ public struct PullRequest: Sendable {
         self.isDraft = isDraft
         self.ciStatus = ciStatus
         self.lastCommitDate = lastCommitDate
+        self.reviewDecision = reviewDecision
+        self.isMergeable = isMergeable
     }
 
     public func commentCount(excluding user: String) -> Int {

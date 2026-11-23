@@ -1,5 +1,6 @@
 // ~/Projects/Roast/Sources/RoastKit/Poller.swift
 import Foundation
+import os
 
 @MainActor
 public final class Poller {
@@ -11,6 +12,8 @@ public final class Poller {
     private var cachedTeammates: [String] = []
     private var lastMemberFetch: Date = .distantPast
     private var timer: Timer?
+    private var retry: Task<Void, Never>?
+    private let retryDelay: Duration = .seconds(30)
 
     public init(
         preferences: PreferencesStore,
@@ -28,6 +31,13 @@ public final class Poller {
     }
 
     public func poll() {
+        poll(isRetry: false)
+    }
+
+    private func poll(isRetry: Bool) {
+        retry?.cancel()
+        retry = nil
+
         guard let token = KeychainStore.loadToken(), !token.isEmpty else {
             statusBar.showError("No GitHub token - open Settings")
             return
@@ -66,19 +76,19 @@ public final class Poller {
 
                 statusBar.update(categorised: categorised, merged: try? await merged, attentionCount: store.attentionCount, prStore: store)
                 notifications.deliver(events)
-            } catch let error as GitHubError {
-                switch error {
-                case .httpError(401, _):
-                    statusBar.showError("Authentication failed - check token")
-                case .httpError(let code, _):
-                    statusBar.showError("GitHub API error (\(code))")
-                case .graphQLErrors(let messages):
-                    statusBar.showError(messages.first ?? "GraphQL error")
-                default:
-                    statusBar.showError("Failed to fetch PRs")
-                }
             } catch {
-                statusBar.showError("Network error")
+                let failure = PollFailure(error)
+                if failure.isRetryable && !isRetry {
+                    Logger.poller.notice("Poll failed, retrying: \(failure.logDetail, privacy: .public)")
+                    retry = Task { [retryDelay] in
+                        try? await Task.sleep(for: retryDelay)
+                        guard !Task.isCancelled else { return }
+                        poll(isRetry: true)
+                    }
+                    return
+                }
+                Logger.poller.error("Poll failed: \(failure.logDetail, privacy: .public)")
+                statusBar.showError(failure.menuMessage)
             }
         }
     }

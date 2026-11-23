@@ -3,8 +3,7 @@ import Foundation
 
 enum PreferencesStoreTests {
     static func freshDefaults() -> UserDefaults {
-        let suiteName = "com.roast.test.\(UUID().uuidString)"
-        return UserDefaults(suiteName: suiteName)!
+        makeTestDefaults()
     }
 
     static func run() {

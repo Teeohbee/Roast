@@ -3,9 +3,7 @@ import Foundation
 
 enum PRStoreTests {
     static func freshPreferences() -> PreferencesStore {
-        let suiteName = "com.roast.test.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        let prefs = PreferencesStore(defaults: defaults)
+        let prefs = PreferencesStore(defaults: makeTestDefaults())
         prefs.teamSlug = "myorg/myteam"
         return prefs
     }

@@ -47,6 +47,22 @@ enum PollFailureTests {
                 try expect(failure.logDetail.contains("NSURLErrorDomain"), "got \(failure.logDetail)")
                 try expect(failure.logDetail.contains("-1009"), "got \(failure.logDetail)")
             }
+
+            test("an auth failure isn't retried") {
+                try expect(!PollFailure(GitHubError.httpError(401, "Bad credentials")).isRetryable)
+            }
+
+            test("a server error is retried") {
+                try expect(PollFailure(GitHubError.httpError(502, "")).isRetryable)
+            }
+
+            test("a GraphQL search timeout is retried") {
+                try expect(PollFailure(GitHubError.graphQLErrors(["Something went wrong while executing your query"])).isRetryable)
+            }
+
+            test("a network error is retried") {
+                try expect(PollFailure(URLError(.notConnectedToInternet)).isRetryable)
+            }
         }
     }
 }
